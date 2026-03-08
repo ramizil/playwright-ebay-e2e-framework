@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eBay E2E Automation Framework — Presentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-dark: #0a0e17;
+  --bg-card: #111827;
+  --bg-card-hover: #1a2332;
+  --accent: #3b82f6;
+  --accent-light: #60a5fa;
+  --accent-glow: rgba(59, 130, 246, 0.15);
+  --green: #10b981;
+  --orange: #f59e0b;
+  --red: #ef4444;
+  --purple: #8b5cf6;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --text-bright: #f8fafc;
+  --border: #1e293b;
+  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Playfair Display', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-dark);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* ── Navigation ── */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.8rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+nav .logo {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--accent-light);
+  font-weight: 700;
+}
+
+nav .nav-links {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+nav .nav-links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  transition: all 0.25s;
+}
+
+nav .nav-links a:hover, nav .nav-links a.active {
+  color: var(--text-bright);
+  background: var(--accent-glow);
+}
+
+/* ── Sections ── */
+section {
+  min-height: 100vh;
+  padding: 7rem 2rem 4rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.section-number {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 0.8rem;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUp 0.6s forwards;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  color: var(--text-bright);
+  line-height: 1.15;
+  margin-bottom: 1.5rem;
+}
+
+h1 .highlight {
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  color: var(--text-bright);
+  margin-bottom: 1.2rem;
+  line-height: 1.2;
+}
+
+h3 {
+  font-size: 1.2rem;
+  color: var(--accent-light);
+  margin-bottom: 0.6rem;
+  font-weight: 700;
+}
+
+p { color: var(--text-dim); max-width: 680px; margin-bottom: 1rem; }
+p.lead { font-size: 1.15rem; color: var(--text); }
+
+/* ── Cards Grid ── */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.2rem;
+  margin-top: 2rem;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.8rem;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--purple));
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(59, 130, 246, 0.1);
+}
+
+.card:hover::before { opacity: 1; }
+
+.card-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.card p { font-size: 0.92rem; }
+
+/* ── Code Blocks ── */
+.code-block {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin: 1.2rem 0;
+  overflow-x: auto;
+  position: relative;
+}
+
+.code-block::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.6rem;
+  right: 0.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.code-block code {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.8;
+  white-space: pre;
+}
+
+.kw { color: var(--purple); }
+.fn { color: var(--accent-light); }
+.str { color: var(--green); }
+.cm { color: #6b7280; font-style: italic; }
+.num { color: var(--orange); }
+.op { color: var(--red); }
+.dec { color: var(--orange); }
+.cls { color: #f472b6; }
+
+/* ── Architecture Diagram ── */
+.arch-diagram {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  margin: 2rem 0;
+  overflow-x: auto;
+}
+
+.arch-layer {
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  transition: all 0.3s;
+}
+
+.arch-layer:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-left-color: var(--accent-light);
+}
+
+.arch-layer:nth-child(2) { border-left-color: var(--green); }
+.arch-layer:nth-child(3) { border-left-color: var(--purple); }
+.arch-layer:nth-child(4) { border-left-color: var(--orange); }
+.arch-layer:nth-child(5) { border-left-color: var(--red); }
+
+.arch-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-light);
+  min-width: 110px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.arch-files {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+}
+
+.arch-files strong { color: var(--text); font-weight: 500; }
+
+/* ── Flow Diagram ── */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 2rem 0;
+}
+
+.flow-step {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 1.2rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.3s;
+}
+
+.flow-step:hover {
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+.flow-arrow { color: var(--accent); font-size: 1.4rem; }
+
+/* ── Tables ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.9rem;
+}
+
+th {
+  background: var(--bg-card);
+  color: var(--accent-light);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0.8rem 1rem;
+  text-align: left;
+  border-bottom: 2px solid var(--accent);
+}
+
+td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+tr:hover td { background: rgba(59, 130, 246, 0.04); }
+
+td code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  color: var(--accent-light);
+}
+
+/* ── Badges ── */
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 20px;
+  font-weight: 500;
+  border: 1px solid;
+}
+
+.badge-blue   { color: var(--accent-light); border-color: var(--accent); background: rgba(59,130,246,0.1); }
+.badge-green  { color: var(--green); border-color: var(--green); background: rgba(16,185,129,0.1); }
+.badge-purple { color: var(--purple); border-color: var(--purple); background: rgba(139,92,246,0.1); }
+.badge-orange { color: var(--orange); border-color: var(--orange); background: rgba(245,158,11,0.1); }
+
+/* ── Percentage Bars ── */
+.criteria-bar {
+  margin: 0.8rem 0;
+}
+
+.criteria-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+}
+
+.criteria-label span:first-child { color: var(--text); font-weight: 500; }
+.criteria-label span:last-child { color: var(--accent-light); font-family: var(--font-mono); font-size: 0.85rem; }
+
+.bar-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+  width: 0;
+}
+
+.bar-fill.blue   { background: linear-gradient(90deg, var(--accent), var(--accent-light)); }
+.bar-fill.green  { background: linear-gradient(90deg, #059669, var(--green)); }
+.bar-fill.purple { background: linear-gradient(90deg, #7c3aed, var(--purple)); }
+.bar-fill.orange { background: linear-gradient(90deg, #d97706, var(--orange)); }
+
+/* ── Command Block ── */
+.cmd {
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.8rem 1.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--green);
+  margin: 0.6rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cmd .prompt { color: var(--text-dim); user-select: none; }
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Hero sparkle ── */
+.hero-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.hero-bg .orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+}
+
+.hero-bg .orb-1 {
+  width: 500px; height: 500px;
+  background: var(--accent);
+  top: -100px; right: -100px;
+}
+
+.hero-bg .orb-2 {
+  width: 400px; height: 400px;
+  background: var(--purple);
+  bottom: -100px; left: -100px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  section { padding: 6rem 1.2rem 3rem; }
+  nav .nav-links { display: none; }
+  .cards { grid-template-columns: 1fr; }
+  .flow { justify-content: center; }
+}
+
+/* ── Print ── */
+@media print {
+  nav { display: none; }
+  section { min-height: auto; page-break-inside: avoid; padding: 2rem 1rem; }
+  .card:hover { transform: none; }
+  body { background: #fff; color: #1a1a1a; }
+}
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <div class="logo">E2E Framework</div>
+  <div class="nav-links">
+    <a href="#hero">Home</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#smart-locators">Smart Locators</a>
+    <a href="#retry">Retry</a>
+    <a href="#pom">POM</a>
+    <a href="#data-driven">Data-Driven</a>
+    <a href="#flow">E2E Flow</a>
+    <a href="#parallel">Parallel</a>
+    <a href="#cicd">CI/CD</a>
+    <a href="#runbook">Runbook</a>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 1: Hero -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="hero" style="position:relative;">
+  <div class="hero-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+  <div class="section-number" style="animation-delay:0.1s">Senior Automation Developer — Technical Presentation</div>
+  <h1>
+    eBay E2E<br>
+    <span class="highlight">Automation Framework</span>
+  </h1>
+  <p class="lead">
+    A production-grade end-to-end test framework built with Python 3.12, Playwright, and pytest.
+    Demonstrates clean architecture, smart locator strategies, data-driven testing, parallel
+    execution, and CI/CD integration.
+  </p>
+  <div class="badges">
+    <span class="badge badge-blue">Python 3.12</span>
+    <span class="badge badge-green">Playwright</span>
+    <span class="badge badge-purple">pytest</span>
+    <span class="badge badge-orange">Allure Reports</span>
+    <span class="badge badge-blue">Docker</span>
+    <span class="badge badge-green">GitHub Actions</span>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 2: Architecture -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="architecture">
+  <div class="fade-in">
+    <div class="section-number">01 — Architecture</div>
+    <h2>Layered Architecture</h2>
+    <p>Clean separation of concerns across five layers. Each layer has a single responsibility
+       and communicates only with its immediate neighbours.</p>
+
+    <div class="arch-diagram">
+      <div class="arch-layer">
+        <div class="arch-label">Tests</div>
+        <div class="arch-files"><strong>test_e2e_shopping.py</strong> — Data-driven parametrised tests with Allure steps</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Pages</div>
+        <div class="arch-files"><strong>home_page.py</strong> · <strong>search_results_page.py</strong> · <strong>product_page.py</strong> · <strong>cart_page.py</strong></div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Core</div>
+        <div class="arch-files"><strong>base_page.py</strong> — Smart locator resolution, retry, screenshots, logging</div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Utils</div>
+        <div class="arch-files"><strong>data_loader.py</strong> · <strong>screenshot_manager.py</strong> · <strong>allure_helper.py</strong></div>
+      </div>
+      <div class="arch-layer">
+        <div class="arch-label">Config</div>
+        <div class="arch-files"><strong>config.yaml</strong> + <strong>settings.py</strong> — YAML config with environment variable overrides</div>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top: 1.5rem;">
+      <div class="card">
+        <span class="card-icon">🏗️</span>
+        <h3>POM (Page Object Model)</h3>
+        <p>Each eBay page maps to a dedicated class. Tests never touch raw selectors — they call descriptive methods like <code>home.search("laptop")</code>.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🧬</span>
+        <h3>OOP Principles</h3>
+        <p>Inheritance (BasePage → pages), encapsulation (locators are private), polymorphism (locator resolution strategy).</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">📐</span>
+        <h3>Single Responsibility</h3>
+        <p>Each module does one thing: retry_handler handles retries, data_loader handles data, screenshot_manager handles captures.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 3: Smart Locators -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="smart-locators">
+  <div class="fade-in">
+    <div class="section-number">02 — Smart Locators</div>
+    <h2>Resilient Element Location</h2>
+    <p>Every UI element is defined with <strong>at least 2 locator strategies</strong>.
+       When the primary fails (DOM change, A/B test, layout shift), the framework
+       automatically falls back — keeping tests green without manual fixes.</p>
+
+    <div class="code-block" data-lang="Python">
+<code><span class="cm"># Every element gets ≥ 2 strategies</span>
+<span class="cls">SEARCH_INPUT</span> = <span class="fn">SmartLocator</span>(
+    name=<span class="str">"search_input"</span>,
+    strategies=[
+        <span class="fn">LocatorStrategy</span>(<span class="str">"css"</span>,   <span class="str">"input.gh-tb[type='text']"</span>,     <span class="str">"by class"</span>),
+        <span class="fn">LocatorStrategy</span>(<span class="str">"xpath"</span>, <span class="str">"//input[@name='_nkw']"</span>,         <span class="str">"by name attr"</span>),
+    ],
+)</code>
+    </div>
+
+    <div class="code-block" data-lang="Python">
+<code><span class="cm"># BasePage.find_element() — the fallback engine</span>
+<span class="kw">def</span> <span class="fn">find_element</span>(self, smart_locator, timeout=<span class="kw">None</span>):
+    <span class="kw">for</span> idx, strategy <span class="kw">in</span> <span class="fn">enumerate</span>(smart_locator.strategies):
+        <span class="kw">try</span>:
+            locator = self.<span class="fn">_create_playwright_locator</span>(strategy)
+            locator.<span class="fn">wait_for</span>(state=<span class="str">"visible"</span>, timeout=timeout)
+            self.logger.<span class="fn">info</span>(<span class="str">"✓ Strategy #%d succeeded"</span>, idx+<span class="num">1</span>)
+            <span class="kw">return</span> locator
+        <span class="kw">except</span> <span class="cls">TimeoutError</span>:
+            self.logger.<span class="fn">warning</span>(<span class="str">"✗ Strategy #%d failed"</span>, idx+<span class="num">1</span>)
+
+    self.<span class="fn">take_screenshot</span>(<span class="str">f"FAIL_{smart_locator.name}"</span>)
+    <span class="kw">raise</span> <span class="cls">SmartLocatorError</span>(<span class="str">"All strategies exhausted"</span>)</code>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Method</th><th>Playwright API</th><th>Example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>css</code></td><td>page.locator(selector)</td><td><code>input#gh-btn</code></td></tr>
+        <tr><td><code>xpath</code></td><td>page.locator("xpath=…")</td><td><code>//input[@name='_nkw']</code></td></tr>
+        <tr><td><code>text</code></td><td>page.get_by_text()</td><td><code>Add to cart</code></td></tr>
+        <tr><td><code>role</code></td><td>page.get_by_role()</td><td><code>button, name=Search</code></td></tr>
+        <tr><td><code>test_id</code></td><td>page.get_by_test_id()</td><td><code>ux-call-to-action</code></td></tr>
+        <tr><td><code>placeholder</code></td><td>page.get_by_placeholder()</td><td><code>Search for anything</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 4: Retry & Backoff -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="retry">
+  <div class="fade-in">
+    <div class="section-number">03 — Resilience</div>
+    <h2>Retry with Exponential Backoff</h2>
+    <p>The <code>@with_retry</code> decorator wraps any function with configurable
+       retry logic.  Handles transient failures from network hiccups, slow DOM renders,
+       and overlay animations.</p>
+
+    <div class="code-block" data-lang="Python">
+<code><span class="dec">@with_retry</span>(max_attempts=<span class="num">3</span>, backoff_factor=<span class="num">1.0</span>, jitter=<span class="kw">True</span>)
+<span class="kw">def</span> <span class="fn">_click_add_to_cart</span>(self):
+    element = self.<span class="fn">find_element</span>(self.ADD_TO_CART_BUTTON)
+    element.<span class="fn">click</span>()</code>
+    </div>
+
+    <h3 style="margin-top:2rem;">Backoff Formula</h3>
+    <p><code>wait = backoff_factor × 2^(attempt-1) ± 25% jitter</code></p>
+
+    <table>
+      <thead>
+        <tr><th>Attempt</th><th>Wait</th><th>Cumulative</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>0s</td><td>0s</td><td>First try — immediate</td></tr>
+        <tr><td>2</td><td>~1s</td><td>~1s</td><td>Retry after short pause</td></tr>
+        <tr><td>3</td><td>~2s</td><td>~3s</td><td>Final attempt + screenshot on fail</td></tr>
+      </tbody>
+    </table>
+
+    <div class="cards" style="grid-template-columns: 1fr 1fr; margin-top: 1.5rem;">
+      <div class="card">
+        <span class="card-icon">🔄</span>
+        <h3>Decorator Form</h3>
+        <p><code>@with_retry()</code> wraps methods permanently. Used in BasePage for click, fill, type actions.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🎯</span>
+        <h3>Inline Form</h3>
+        <p><code>retry_call(func, ...)</code> for one-off retries without decorating the function.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 5: Page Object Model -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="pom">
+  <div class="fade-in">
+    <div class="section-number">04 — Page Object Model</div>
+    <h2>Four Page Objects</h2>
+    <p>Each eBay page has a dedicated class inheriting from <code>BasePage</code>. Locators and page-specific logic are encapsulated; tests only call high-level methods.</p>
+
+    <div class="cards">
+      <div class="card">
+        <span class="card-icon">🏠</span>
+        <h3>HomePage</h3>
+        <p><code>open()</code> — navigate to eBay<br>
+           <code>search(query)</code> — type &amp; submit search<br>
+           <code>accept_cookies_if_present()</code></p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🔍</span>
+        <h3>SearchResultsPage</h3>
+        <p><code>apply_price_filter(max)</code><br>
+           <code>filter_buy_it_now()</code><br>
+           <code>collect_items_under_price()</code> — with pagination</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">📦</span>
+        <h3>ProductPage</h3>
+        <p><code>select_random_variants()</code> — size/colour<br>
+           <code>add_to_cart()</code> — click + confirm<br>
+           <code>get_product_title()</code></p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🛒</span>
+        <h3>CartPage</h3>
+        <p><code>open_cart()</code><br>
+           <code>get_subtotal()</code> — parse price<br>
+           <code>assert_cart_total_not_exceeds()</code></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 6: Data-Driven -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="data-driven">
+  <div class="fade-in">
+    <div class="section-number">05 — Data-Driven Testing</div>
+    <h2>External Test Data</h2>
+    <p>All test inputs come from <code>data/search_data.json</code>. Adding a new scenario requires
+       <strong>zero code changes</strong> — just add an object to the JSON array.</p>
+
+    <div class="code-block" data-lang="JSON">
+<code>{
+  <span class="str">"test_scenarios"</span>: [
+    {
+      <span class="str">"id"</span>: <span class="str">"headphones_under_50"</span>,
+      <span class="str">"query"</span>: <span class="str">"wireless headphones"</span>,
+      <span class="str">"max_price"</span>: <span class="num">50.00</span>,
+      <span class="str">"limit"</span>: <span class="num">5</span>,
+      <span class="str">"budget_per_item"</span>: <span class="num">50.00</span>
+    },
+    {
+      <span class="str">"id"</span>: <span class="str">"phone_case_under_20"</span>,
+      <span class="str">"query"</span>: <span class="str">"phone case iPhone"</span>,
+      <span class="str">"max_price"</span>: <span class="num">20.00</span>,
+      <span class="str">"limit"</span>: <span class="num">3</span>,
+      <span class="str">"budget_per_item"</span>: <span class="num">20.00</span>
+    }
+  ]
+}</code>
+    </div>
+
+    <div class="code-block" data-lang="Python">
+<code><span class="cm"># Tests are parametrised automatically from the JSON</span>
+<span class="dec">@pytest.mark.parametrize</span>(<span class="str">"scenario"</span>, _scenarios, ids=_scenario_ids)
+<span class="kw">def</span> <span class="fn">test_ebay_shopping_flow</span>(page, test_settings, scenario):
+    query = scenario[<span class="str">"query"</span>]
+    max_price = scenario[<span class="str">"max_price"</span>]
+    <span class="cm"># ... full E2E flow</span></code>
+    </div>
+
+    <div class="cards" style="grid-template-columns: 1fr 1fr;">
+      <div class="card">
+        <span class="card-icon">📁</span>
+        <h3>JSON for Test Data</h3>
+        <p>Search queries, price limits, item counts, budget thresholds — all externalised.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">⚙️</span>
+        <h3>YAML for Config</h3>
+        <p>Timeouts, browsers, retry settings, URLs — with environment variable overrides.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 7: E2E Flow -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="flow">
+  <div class="fade-in">
+    <div class="section-number">06 — E2E Flow</div>
+    <h2>Shopping Scenario</h2>
+    <p>The three core functions from the task specification, orchestrated into a single test flow.</p>
+
+    <div class="flow">
+      <div class="flow-step">🏠 Open eBay</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">🔍 Search</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">💰 Price Filter</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">📄 Collect URLs</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">📦 Add to Cart</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">🛒 Validate Total</div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>searchItemsByNameUnderPrice</h3>
+        <p>Search eBay → filter "Buy It Now" → apply price range → iterate results → paginate if needed → return up to <em>limit</em> URLs.</p>
+      </div>
+      <div class="card">
+        <h3>addItemsToCart</h3>
+        <p>Open each URL → detect required variants → select random size/colour → click "Add to Cart" → screenshot confirmation.</p>
+      </div>
+      <div class="card">
+        <h3>assertCartTotalNotExceeds</h3>
+        <p>Navigate to cart → read subtotal → calculate budget × count → assert total ≤ threshold → attach evidence.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 8: Parallel -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="parallel">
+  <div class="fade-in">
+    <div class="section-number">07 — Parallel Execution</div>
+    <h2>Speed at Scale</h2>
+    <p>Two strategies for parallel execution — choose based on your environment.</p>
+
+    <div class="cards" style="grid-template-columns: 1fr 1fr;">
+      <div class="card">
+        <span class="card-icon">⚡</span>
+        <h3>pytest-xdist</h3>
+        <p>Multi-process parallelism within a single machine. Each worker gets an isolated BrowserContext — no shared cookies or state.</p>
+        <div class="cmd"><span class="prompt">$</span> pytest -n auto --dist=loadfile</div>
+      </div>
+      <div class="card">
+        <span class="card-icon">🐳</span>
+        <h3>Docker Compose</h3>
+        <p>Separate containers per browser. Chromium and Firefox run simultaneously with their own Allure output.</p>
+        <div class="cmd"><span class="prompt">$</span> docker-compose up --build</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 2rem;">Session Isolation</h3>
+    <table>
+      <thead>
+        <tr><th>Feature</th><th>Implementation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Cookies / Storage</td><td>Fresh <code>BrowserContext</code> per test</td></tr>
+        <tr><td>Viewport / Locale</td><td>Configured per context from YAML</td></tr>
+        <tr><td>Traces</td><td>Separate trace file per test</td></tr>
+        <tr><td>Reports</td><td>Unique folder per browser: <code>allure-results/chromium/</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 9: CI/CD -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="cicd">
+  <div class="fade-in">
+    <div class="section-number">08 — CI/CD Pipeline</div>
+    <h2>GitHub Actions</h2>
+    <p>Automated on every push/PR.  Matrix strategy runs Chromium + Firefox in parallel.
+       Results are merged into a single Allure report and deployed to GitHub Pages.</p>
+
+    <div class="flow">
+      <div class="flow-step">📥 Checkout</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">🐍 Setup Python</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">📦 Install Deps</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">🎭 Install Browser</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">🧪 Run Tests</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">📊 Allure Report</div>
+    </div>
+
+    <div class="code-block" data-lang="YAML">
+<code><span class="cm"># .github/workflows/e2e-tests.yml</span>
+<span class="kw">strategy</span>:
+  <span class="kw">fail-fast</span>: <span class="num">false</span>
+  <span class="kw">matrix</span>:
+    <span class="kw">browser</span>: [<span class="str">chromium</span>, <span class="str">firefox</span>]
+
+<span class="cm"># Each browser runs independently</span>
+<span class="cm"># All results merged into one report</span>
+<span class="cm"># Deployed to GitHub Pages on main</span></code>
+    </div>
+
+    <div class="cards" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="card">
+        <span class="card-icon">🔀</span>
+        <h3>Matrix</h3>
+        <p>Chromium + Firefox in parallel jobs</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">📎</span>
+        <h3>Artifacts</h3>
+        <p>Screenshots, traces, results uploaded</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🌐</span>
+        <h3>Pages</h3>
+        <p>Allure report auto-deployed on main</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 10: Runbook -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="runbook">
+  <div class="fade-in">
+    <div class="section-number">09 — Runbook</div>
+    <h2>How to Run</h2>
+
+    <h3>Setup</h3>
+    <div class="cmd"><span class="prompt">$</span> python -m venv venv && venv\Scripts\activate</div>
+    <div class="cmd"><span class="prompt">$</span> pip install -r requirements.txt</div>
+    <div class="cmd"><span class="prompt">$</span> python -m playwright install --with-deps chromium</div>
+
+    <h3 style="margin-top: 1.5rem;">Run Tests</h3>
+    <table>
+      <thead>
+        <tr><th>What</th><th>Command</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Smoke test</td><td><code>pytest tests/ -v -m smoke</code></td></tr>
+        <tr><td>Full E2E</td><td><code>pytest tests/ -v -m e2e --alluredir=allure-results</code></td></tr>
+        <tr><td>Visible browser</td><td><code>$env:EBAY_HEADLESS="false"; pytest tests/ -v -m smoke</code></td></tr>
+        <tr><td>Specific browser</td><td><code>$env:EBAY_BROWSER="firefox"; pytest tests/ -v</code></td></tr>
+        <tr><td>Parallel</td><td><code>pytest tests/ -v -n auto --dist=loadfile</code></td></tr>
+        <tr><td>Docker multi-browser</td><td><code>docker-compose up --build</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 1.5rem;">View Report</h3>
+    <div class="cmd"><span class="prompt">$</span> allure serve allure-results</div>
+
+    <h3 style="margin-top: 1.5rem;">Configuration Override</h3>
+    <table>
+      <thead>
+        <tr><th>Env Variable</th><th>Effect</th><th>Example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>EBAY_HEADLESS</code></td><td>Show/hide browser</td><td><code>"false"</code></td></tr>
+        <tr><td><code>EBAY_BROWSER</code></td><td>Choose browser</td><td><code>"firefox"</code></td></tr>
+        <tr><td><code>EBAY_BASE_URL</code></td><td>Target site</td><td><code>"https://www.ebay.co.uk"</code></td></tr>
+        <tr><td><code>EBAY_TIMEOUT</code></td><td>Default wait (ms)</td><td><code>"20000"</code></td></tr>
+        <tr><td><code>EBAY_LOG_LEVEL</code></td><td>Log verbosity</td><td><code>"DEBUG"</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Footer -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<footer style="text-align:center; padding: 3rem 2rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.85rem;">
+  <p>eBay E2E Automation Framework — Python 3.12 · Playwright · pytest · Allure</p>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- Scripts -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<script>
+// Intersection Observer for fade-in animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+
+      // Animate progress bars within this section
+      entry.target.querySelectorAll('.bar-fill').forEach(bar => {
+        setTimeout(() => {
+          bar.style.width = bar.dataset.width;
+        }, 300);
+      });
+    }
+  });
+}, { threshold: 0.15 });
+
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// Active nav link highlighting
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('nav .nav-links a');
+
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(section => {
+    const top = section.offsetTop - 120;
+    if (window.scrollY >= top) {
+      current = section.getAttribute('id');
+    }
+  });
+
+  navLinks.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === `#${current}`) {
+      link.classList.add('active');
+    }
+  });
+});
+
+// Keyboard navigation (← →)
+document.addEventListener('keydown', (e) => {
+  const sectionIds = Array.from(sections).map(s => s.id);
+  const currentIdx = sectionIds.findIndex(id => {
+    const el = document.getElementById(id);
+    const rect = el.getBoundingClientRect();
+    return rect.top >= -100 && rect.top < window.innerHeight / 2;
+  });
+
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = Math.min(currentIdx + 1, sectionIds.length - 1);
+    document.getElementById(sectionIds[next]).scrollIntoView({ behavior: 'smooth' });
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = Math.max(currentIdx - 1, 0);
+    document.getElementById(sectionIds[prev]).scrollIntoView({ behavior: 'smooth' });
+  }
+});
+</script>
+</body>
+</html>
