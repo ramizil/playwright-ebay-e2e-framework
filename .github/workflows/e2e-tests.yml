@@ -1,0 +1,166 @@
+# =============================================================================
+# GitHub Actions — E2E Test Pipeline
+# =============================================================================
+# Runs the Playwright E2E suite across multiple browsers in parallel.
+# Each browser gets its own job, producing isolated Allure results that
+# are merged into a single report at the end.
+#
+# Triggers:
+#   - Push to main/develop
+#   - Pull request to main
+#   - Manual dispatch (workflow_dispatch) for on-demand runs
+
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      browsers:
+        description: "Comma-separated browsers (chromium,firefox,webkit)"
+        required: false
+        default: "chromium,firefox"
+
+# Cancel in-progress runs for the same branch to save resources
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -------------------------------------------------------------------
+  # Matrix job: one runner per browser
+  # -------------------------------------------------------------------
+  test:
+    name: "E2E — ${{ matrix.browser }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false          # Let all browsers finish even if one fails
+      matrix:
+        browser: [chromium, firefox]
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Set up Python 3.12
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # 3. Install Python dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Install Playwright browsers (only the one we need)
+      - name: Install Playwright browser
+        run: python -m playwright install --with-deps ${{ matrix.browser }}
+
+      # 5. Run E2E tests with Allure + parallel workers
+      - name: Run E2E tests
+        env:
+          EBAY_BROWSER: ${{ matrix.browser }}
+          EBAY_HEADLESS: "true"
+        run: |
+          pytest tests/ \
+            -v \
+            --alluredir=allure-results/${{ matrix.browser }} \
+            -n auto \
+            --dist=loadfile \
+            -m "e2e or smoke" \
+            --timeout=120
+
+      # 6. Upload Allure results as artifacts (even on failure)
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.browser }}
+          path: allure-results/${{ matrix.browser }}
+          retention-days: 14
+
+      # 7. Upload screenshots on failure
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.browser }}
+          path: screenshots/
+          retention-days: 14
+
+      # 8. Upload traces on failure
+      - name: Upload traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-${{ matrix.browser }}
+          path: traces/
+          retention-days: 14
+
+  # -------------------------------------------------------------------
+  # Report job: merge Allure results and publish
+  # -------------------------------------------------------------------
+  report:
+    name: "Generate Allure Report"
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Download all browser-specific results
+      - name: Download Allure results (Chromium)
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-chromium
+          path: allure-results/chromium
+        continue-on-error: true
+
+      - name: Download Allure results (Firefox)
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-firefox
+          path: allure-results/firefox
+        continue-on-error: true
+
+      # Merge results into a single directory
+      - name: Merge Allure results
+        run: |
+          mkdir -p allure-results/merged
+          cp -r allure-results/chromium/* allure-results/merged/ 2>/dev/null || true
+          cp -r allure-results/firefox/* allure-results/merged/ 2>/dev/null || true
+
+      # Generate the HTML report
+      - name: Generate Allure report
+        uses: simple-elf/allure-report-action@v1.9
+        with:
+          allure_results: allure-results/merged
+          allure_report: allure-report
+
+      # Publish to GitHub Pages
+      - name: Deploy report to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          destination_dir: allure-report
+
+      # Upload full report as downloadable artifact
+      - name: Upload Allure report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+          retention-days: 30

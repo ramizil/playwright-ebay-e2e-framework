@@ -1,0 +1,27 @@
+[project]
+name = "ebay-e2e-automation"
+version = "1.0.0"
+description = "E2E automation framework for eBay using Playwright + pytest with POM architecture"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--tb=short",
+    "--strict-markers",
+    "-v",
+]
+markers = [
+    "smoke: Quick sanity checks",
+    "regression: Full regression suite",
+    "e2e: End-to-end shopping flow tests",
+    "parallel: Tests safe for parallel execution",
+]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"

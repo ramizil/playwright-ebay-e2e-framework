@@ -1,0 +1,47 @@
+# =============================================================================
+# Docker Compose — Multi-Browser Parallel Execution
+# =============================================================================
+# Launches separate containers for each browser, each producing its own
+# Allure results.  Run with:
+#
+#   docker-compose up --build
+#   docker-compose up --build --abort-on-container-exit
+#
+# Results are written to ./allure-results/<browser>/ on the host.
+
+services:
+  # ---- Chromium runner ----
+  test-chromium:
+    build: .
+    container_name: ebay-e2e-chromium
+    environment:
+      EBAY_BROWSER: chromium
+      EBAY_HEADLESS: "true"
+    volumes:
+      - ./allure-results/chromium:/app/allure-results
+      - ./screenshots/chromium:/app/screenshots
+      - ./traces/chromium:/app/traces
+    command: >
+      pytest tests/ -v
+      --alluredir=allure-results
+      -n auto --dist=loadfile
+      -m "e2e or smoke"
+      --timeout=120
+
+  # ---- Firefox runner ----
+  test-firefox:
+    build: .
+    container_name: ebay-e2e-firefox
+    environment:
+      EBAY_BROWSER: firefox
+      EBAY_HEADLESS: "true"
+    volumes:
+      - ./allure-results/firefox:/app/allure-results
+      - ./screenshots/firefox:/app/screenshots
+      - ./traces/firefox:/app/traces
+    command: >
+      pytest tests/ -v
+      --alluredir=allure-results
+      -n auto --dist=loadfile
+      -m "e2e or smoke"
+      --timeout=120

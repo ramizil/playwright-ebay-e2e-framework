@@ -1,0 +1,55 @@
+# =============================================================================
+# E2E Framework Configuration
+# =============================================================================
+# Central configuration file for the eBay automation framework.
+# Values here can be overridden by environment variables (see settings.py).
+
+# Target site
+base_url: "https://www.ebay.com"
+
+# Timeouts (milliseconds)
+timeouts:
+  default: 15000        # Default wait for element visibility
+  navigation: 30000     # Page navigation timeout
+  action: 5000          # Click / fill / type timeout
+
+# Retry behaviour for unstable environments
+retry:
+  max_attempts: 3       # Total tries per operation
+  backoff_factor: 1.0   # Base delay in seconds (doubles each retry)
+  jitter: true          # Add ±25% randomness to avoid thundering herd
+
+# Browser profiles for parallel execution
+browsers:
+  - chromium
+  - firefox
+  # - webkit  # Uncomment to include Safari/WebKit
+
+# Browser launch options
+browser_options:
+  headless: true
+  slow_mo: 0            # Milliseconds of delay between actions (useful for demos)
+
+# Viewport
+viewport:
+  width: 1920
+  height: 1080
+
+# Screenshot & tracing
+screenshots:
+  on_failure: true      # Capture screenshot when a test fails
+  on_step: true         # Capture screenshot after key actions (add-to-cart)
+
+tracing:
+  enabled: true         # Record Playwright traces for failed tests
+  screenshots: true
+  snapshots: true
+
+# Reporting
+reporting:
+  allure_results_dir: "allure-results"
+  html_report_dir: "reports"
+
+# Logging
+logging:
+  level: "INFO"         # DEBUG for maximum verbosity
