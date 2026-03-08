@@ -19,11 +19,23 @@ retry:
   backoff_factor: 1.0   # Base delay in seconds (doubles each retry)
   jitter: true          # Add ±25% randomness to avoid thundering herd
 
-# Browser profiles for parallel execution
+# Browser profiles for parallel execution.
+# Each name maps to a Playwright browser engine + optional channel.
+# Supported profiles:
+#   chromium       → Playwright's bundled Chromium (no channel)
+#   firefox        → Playwright's bundled Firefox
+#   webkit         → Playwright's bundled WebKit (Safari-like)
+#   chrome         → Google Chrome stable  (chromium + channel: chrome)
+#   chrome-beta    → Google Chrome beta    (chromium + channel: chrome-beta)
+#   msedge         → Microsoft Edge stable (chromium + channel: msedge)
+#   msedge-beta    → Microsoft Edge beta   (chromium + channel: msedge-beta)
 browsers:
   - chromium
   - firefox
-  # - webkit  # Uncomment to include Safari/WebKit
+  - msedge
+  # - webkit        # Safari/WebKit
+  # - chrome        # Google Chrome stable
+  # - chrome-beta   # Chrome beta channel
 
 # Browser launch options
 browser_options:

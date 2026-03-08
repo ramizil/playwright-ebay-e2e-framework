@@ -93,8 +93,8 @@ class ProductPage(BasePage):
     CART_LAYER_CLOSE = SmartLocator(
         name="cart_layer_close",
         strategies=[
-            LocatorStrategy("css", "button[data-testid='ux-close-button']", "close cart overlay"),
-            LocatorStrategy("xpath", "//button[contains(@class, 'overlay-close') or @aria-label='Close']", "close overlay XPath"),
+            LocatorStrategy("css", "button[data-testid='ux-close-button'], button[aria-label='Close']", "close button by data-testid or aria-label"),
+            LocatorStrategy("css", "a:has-text('No thanks'), a:has-text('Continue shopping')", "continue shopping link"),
         ],
     )
 
@@ -229,14 +229,23 @@ class ProductPage(BasePage):
     def _close_cart_overlay(self) -> None:
         """Dismiss the post-add-to-cart overlay if present.
 
-        Some eBay pages show a "continue shopping" / "go to cart" modal
-        after adding an item.  We close it so the browser is ready for
-        the next item URL.
+        Modern eBay may redirect to a cart page or show an inline
+        confirmation rather than a closable overlay.  This is best-effort
+        with a short timeout to avoid wasting time on retries.
         """
         try:
-            self.click(self.CART_LAYER_CLOSE, timeout=3_000)
-            self.logger.info("Cart overlay closed")
-        except SmartLocatorError:
+            close_btn = self.page.locator(
+                "button[data-testid='ux-close-button'], "
+                "button[aria-label='Close'], "
+                "a:has-text('No thanks'), "
+                "a:has-text('Continue shopping')"
+            ).first
+            if close_btn.is_visible():
+                close_btn.click(timeout=3_000)
+                self.logger.info("Cart overlay closed")
+            else:
+                self.logger.info("No cart overlay to close")
+        except Exception:
             self.logger.info("No cart overlay to close")
 
     # ------------------------------------------------------------------

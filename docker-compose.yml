@@ -1,13 +1,16 @@
 # =============================================================================
 # Docker Compose — Multi-Browser Parallel Execution
 # =============================================================================
-# Launches separate containers for each browser, each producing its own
-# Allure results.  Run with:
+# Launches separate containers for each browser (Chromium, Firefox, Edge),
+# each producing its own Allure results in a unique timestamped folder.
 #
+# Run with:
 #   docker-compose up --build
 #   docker-compose up --build --abort-on-container-exit
 #
 # Results are written to ./allure-results/<browser>/ on the host.
+# Inside each container the EBAY_RUN_ID env var creates a unique sub-folder
+# per invocation so previous results are never overwritten.
 
 services:
   # ---- Chromium runner ----
@@ -39,6 +42,24 @@ services:
       - ./allure-results/firefox:/app/allure-results
       - ./screenshots/firefox:/app/screenshots
       - ./traces/firefox:/app/traces
+    command: >
+      pytest tests/ -v
+      --alluredir=allure-results
+      -n auto --dist=loadfile
+      -m "e2e or smoke"
+      --timeout=120
+
+  # ---- Microsoft Edge runner ----
+  test-msedge:
+    build: .
+    container_name: ebay-e2e-msedge
+    environment:
+      EBAY_BROWSER: msedge
+      EBAY_HEADLESS: "true"
+    volumes:
+      - ./allure-results/msedge:/app/allure-results
+      - ./screenshots/msedge:/app/screenshots
+      - ./traces/msedge:/app/traces
     command: >
       pytest tests/ -v
       --alluredir=allure-results

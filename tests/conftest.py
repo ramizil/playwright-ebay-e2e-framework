@@ -35,7 +35,7 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-from config.settings import load_settings, Settings
+from config.settings import load_settings, Settings, BrowserProfile, resolve_browser_profile
 from core.logger_config import get_logger
 from utils.screenshot_manager import capture_on_failure
 
@@ -71,43 +71,60 @@ def playwright_instance() -> Generator[Playwright, None, None]:
 
 
 @pytest.fixture(scope="session")
-def browser_type_name(test_settings: Settings) -> str:
-    """Determine which browser to use for this session.
+def browser_profile(test_settings: Settings) -> BrowserProfile:
+    """Resolve the browser profile for this session.
 
-    Reads from the ``EBAY_BROWSER`` environment variable first (useful
-    for pytest-xdist workers that each target a different browser), then
+    Reads ``EBAY_BROWSER`` env var first (set by CI matrix or Docker),
     falls back to the first entry in ``config.yaml → browsers``.
+    The profile name is mapped to a Playwright engine + optional channel
+    (e.g. ``'msedge'`` → ``chromium`` engine with ``channel='msedge'``).
 
     Returns:
-        Browser name string: ``'chromium'``, ``'firefox'``, or ``'webkit'``.
+        A ``BrowserProfile`` with ``browser_type`` and optional ``channel``.
     """
     name = os.environ.get("EBAY_BROWSER", test_settings.browsers[0])
-    logger.info("Browser for this session: %s", name)
-    return name
+    profile = resolve_browser_profile(name)
+    logger.info(
+        "Browser profile: %s (engine=%s, channel=%s)",
+        profile.id, profile.browser_type, profile.channel or "default",
+    )
+    return profile
 
 
 @pytest.fixture(scope="session")
 def browser(
     playwright_instance: Playwright,
-    browser_type_name: str,
+    browser_profile: BrowserProfile,
     test_settings: Settings,
 ) -> Generator[Browser, None, None]:
     """Launch a browser instance that persists for the whole session.
 
-    Uses settings from ``config.yaml`` for headless mode and slow_mo.
+    Uses the resolved ``BrowserProfile`` to select the engine and channel,
+    plus settings from ``config.yaml`` for headless mode and slow_mo.
+    Channels allow launching branded builds like Chrome or Edge instead
+    of the bundled open-source Chromium.
 
     Yields:
         A Playwright ``Browser`` instance.
     """
-    browser_type: BrowserType = getattr(playwright_instance, browser_type_name)
-    br = browser_type.launch(
-        headless=test_settings.browser_options.headless,
-        slow_mo=test_settings.browser_options.slow_mo,
+    browser_type: BrowserType = getattr(playwright_instance, browser_profile.browser_type)
+    launch_opts: dict = {
+        "headless": test_settings.browser_options.headless,
+        "slow_mo": test_settings.browser_options.slow_mo,
+    }
+    if browser_profile.channel:
+        launch_opts["channel"] = browser_profile.channel
+
+    br = browser_type.launch(**launch_opts)
+    logger.info(
+        "Browser launched: %s (channel=%s, headless=%s)",
+        browser_profile.browser_type,
+        browser_profile.channel or "bundled",
+        test_settings.browser_options.headless,
     )
-    logger.info("Browser launched: %s (headless=%s)", browser_type_name, test_settings.browser_options.headless)
     yield br
     br.close()
-    logger.info("Browser closed: %s", browser_type_name)
+    logger.info("Browser closed: %s", browser_profile.id)
 
 
 # ------------------------------------------------------------------

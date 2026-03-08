@@ -18,14 +18,63 @@ without editing any files — just set env vars in your pipeline.
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from utils.data_loader import load_yaml
 from core.logger_config import get_logger
 
 logger = get_logger(__name__)
+
+# Maps user-friendly profile names to (playwright_browser_type, channel).
+# Channels let Playwright launch branded browser builds (Chrome, Edge)
+# instead of the bundled open-source Chromium/Firefox.
+BROWSER_PROFILE_MAP: Dict[str, tuple[str, Optional[str]]] = {
+    "chromium": ("chromium", None),
+    "firefox": ("firefox", None),
+    "webkit": ("webkit", None),
+    "chrome": ("chromium", "chrome"),
+    "chrome-beta": ("chromium", "chrome-beta"),
+    "chrome-canary": ("chromium", "chrome-canary"),
+    "msedge": ("chromium", "msedge"),
+    "msedge-beta": ("chromium", "msedge-beta"),
+    "msedge-canary": ("chromium", "msedge-canary"),
+}
+
+
+@dataclass(frozen=True)
+class BrowserProfile:
+    """Resolved browser profile ready for Playwright launch.
+
+    Attributes:
+        id:           The profile name as specified in config (e.g. ``'msedge'``).
+        browser_type: Playwright browser engine (``'chromium'``, ``'firefox'``, ``'webkit'``).
+        channel:      Optional branded channel passed to ``browser.launch(channel=...)``.
+    """
+    id: str
+    browser_type: str
+    channel: Optional[str] = None
+
+
+def resolve_browser_profile(name: str) -> BrowserProfile:
+    """Convert a profile name to a ``BrowserProfile``.
+
+    Looks up the name in ``BROWSER_PROFILE_MAP``.  Unknown names are
+    treated as raw Playwright browser types with no channel.
+
+    Args:
+        name: Profile name from config or ``EBAY_BROWSER`` env var.
+
+    Returns:
+        A ``BrowserProfile`` with the resolved engine and channel.
+    """
+    browser_type, channel = BROWSER_PROFILE_MAP.get(name, (name, None))
+    channel_override = os.environ.get("EBAY_CHANNEL")
+    if channel_override:
+        channel = channel_override
+    return BrowserProfile(id=name, browser_type=browser_type, channel=channel)
 
 
 @dataclass
@@ -89,15 +138,16 @@ class Settings:
 
     Attributes:
         base_url:         Target e-commerce site URL.
-        browsers:         List of browser names for parallel execution.
+        browsers:         List of browser profile names for parallel execution.
         timeouts:         Timeout settings.
         retry:            Retry/backoff settings.
         browser_options:  Headless mode, slow_mo, etc.
         viewport:         Browser viewport size.
-        allure_results:   Output directory for Allure JSON results.
+        allure_results:   Base output directory for Allure JSON results.
         screenshot_on_failure: Capture screenshots on test failure.
         tracing_enabled:  Record Playwright traces.
         log_level:        Logging verbosity.
+        run_id:           Unique identifier for this test run (timestamp-based).
     """
     base_url: str = "https://www.ebay.com"
     browsers: List[str] = field(default_factory=lambda: ["chromium"])
@@ -109,6 +159,14 @@ class Settings:
     screenshot_on_failure: bool = True
     tracing_enabled: bool = True
     log_level: str = "INFO"
+    run_id: str = field(default_factory=lambda: os.environ.get(
+        "EBAY_RUN_ID", time.strftime("%Y%m%d_%H%M%S")
+    ))
+
+    @property
+    def allure_results_for_run(self) -> str:
+        """Return a timestamped allure results path: ``allure-results/run_<id>``."""
+        return os.path.join(self.allure_results, f"run_{self.run_id}")
 
 
 def load_settings() -> Settings:
@@ -178,6 +236,15 @@ def _apply_env_overrides(settings: Settings) -> None:
 
     This is separated into its own function for testability and clarity.
 
+    Supported variables:
+        ``EBAY_BASE_URL``  → ``base_url``
+        ``EBAY_HEADLESS``  → ``browser_options.headless``
+        ``EBAY_BROWSERS``  → ``browsers`` (comma-separated profile names)
+        ``EBAY_CHANNEL``   → resolved at profile level via ``resolve_browser_profile``
+        ``EBAY_LOG_LEVEL`` → ``log_level``
+        ``EBAY_TIMEOUT``   → ``timeouts.default``
+        ``EBAY_RUN_ID``    → ``run_id`` (auto-generated if not set)
+
     Args:
         settings: The ``Settings`` object to mutate in-place.
     """
@@ -195,3 +262,9 @@ def _apply_env_overrides(settings: Settings) -> None:
 
     if timeout := os.environ.get("EBAY_TIMEOUT"):
         settings.timeouts.default = int(timeout)
+
+    if run_id := os.environ.get("EBAY_RUN_ID"):
+        settings.run_id = run_id
+
+    # Publish run_id so xdist workers and subprocesses share it
+    os.environ.setdefault("EBAY_RUN_ID", settings.run_id)

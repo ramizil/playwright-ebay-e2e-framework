@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false          # Let all browsers finish even if one fails
       matrix:
-        browser: [chromium, firefox]
+        browser: [chromium, firefox, msedge]
 
     steps:
       # 1. Checkout the repository
@@ -62,14 +62,22 @@ jobs:
           pip install -r requirements.txt
 
       # 4. Install Playwright browsers (only the one we need)
+      #    msedge uses the chromium engine + Edge channel, so install both
       - name: Install Playwright browser
-        run: python -m playwright install --with-deps ${{ matrix.browser }}
+        run: |
+          if [ "${{ matrix.browser }}" = "msedge" ]; then
+            python -m playwright install --with-deps chromium msedge
+          else
+            python -m playwright install --with-deps ${{ matrix.browser }}
+          fi
 
       # 5. Run E2E tests with Allure + parallel workers
+      #    EBAY_RUN_ID uses the GitHub run ID + attempt for globally unique reports
       - name: Run E2E tests
         env:
           EBAY_BROWSER: ${{ matrix.browser }}
           EBAY_HEADLESS: "true"
+          EBAY_RUN_ID: "gh_${{ github.run_id }}_${{ github.run_attempt }}"
         run: |
           pytest tests/ \
             -v \
@@ -134,12 +142,20 @@ jobs:
           path: allure-results/firefox
         continue-on-error: true
 
+      - name: Download Allure results (Edge)
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-msedge
+          path: allure-results/msedge
+        continue-on-error: true
+
       # Merge results into a single directory
       - name: Merge Allure results
         run: |
           mkdir -p allure-results/merged
           cp -r allure-results/chromium/* allure-results/merged/ 2>/dev/null || true
           cp -r allure-results/firefox/* allure-results/merged/ 2>/dev/null || true
+          cp -r allure-results/msedge/* allure-results/merged/ 2>/dev/null || true
 
       # Generate the HTML report
       - name: Generate Allure report

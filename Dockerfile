@@ -9,9 +9,11 @@
 #   docker run --rm -v $(pwd)/allure-results:/app/allure-results ebay-e2e
 #
 # Environment variables (override at runtime):
-#   EBAY_BROWSER   – chromium | firefox | webkit  (default: chromium)
-#   EBAY_HEADLESS  – true | false                  (default: true)
+#   EBAY_BROWSER   – chromium | firefox | msedge | chrome  (default: chromium)
+#   EBAY_HEADLESS  – true | false                          (default: true)
 #   EBAY_BASE_URL  – target site URL
+#   EBAY_CHANNEL   – optional Playwright channel override
+#   EBAY_RUN_ID    – unique run identifier (auto-generated if not set)
 
 FROM python:3.12-slim AS base
 
@@ -29,8 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers + system deps
-RUN python -m playwright install --with-deps chromium firefox
+# Install Playwright browsers + system deps (Chromium covers Chrome & Edge channels)
+RUN python -m playwright install --with-deps chromium firefox msedge
 
 # Copy the framework code
 COPY . .

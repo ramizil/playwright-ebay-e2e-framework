@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eBay E2E Framework — Runbook for Dummies</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface-2: #22252f;
+            --surface-3: #2a2e3a;
+            --border: #2e3240;
+            --border-light: #3a3f50;
+            --text: #e4e6ed;
+            --text-dim: #9ba1b0;
+            --text-muted: #6b7185;
+            --accent: #6c8cff;
+            --accent-glow: rgba(108,140,255,0.15);
+            --green: #4ade80;
+            --green-dim: rgba(74,222,128,0.12);
+            --orange: #fb923c;
+            --orange-dim: rgba(251,146,60,0.12);
+            --pink: #f472b6;
+            --pink-dim: rgba(244,114,182,0.12);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34,211,238,0.12);
+            --yellow: #facc15;
+            --yellow-dim: rgba(250,204,21,0.12);
+            --red: #f87171;
+            --red-dim: rgba(248,113,113,0.12);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167,139,250,0.12);
+            --radius: 10px;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'Inter', system-ui, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 15px;
+        }
+
+        /* ---- SIDEBAR NAV ---- */
+        .sidebar {
+            position: fixed; top: 0; left: 0;
+            width: 280px; height: 100vh;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            overflow-y: auto; z-index: 100;
+            padding: 24px 0;
+        }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+
+        .sidebar-title {
+            padding: 0 20px 16px;
+            font-size: 13px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: var(--accent);
+        }
+        .sidebar a {
+            display: block; padding: 6px 20px 6px 24px;
+            color: var(--text-dim); text-decoration: none;
+            font-size: 13px; transition: all .15s;
+            border-left: 2px solid transparent;
+        }
+        .sidebar a:hover {
+            color: var(--text);
+            background: var(--accent-glow);
+            border-left-color: var(--accent);
+        }
+        .sidebar .nav-group {
+            margin-top: 14px; padding: 0 20px;
+            font-size: 11px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        /* ---- MAIN CONTENT ---- */
+        .main { margin-left: 280px; padding: 40px 60px 120px; max-width: 1000px; }
+
+        h1 {
+            font-size: 2.4rem; font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--cyan));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        .subtitle { font-size: 1.05rem; color: var(--text-dim); margin-bottom: 48px; }
+
+        h2 {
+            font-size: 1.5rem; font-weight: 700; color: var(--text);
+            margin: 56px 0 20px; padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        h2 .badge {
+            display: inline-block; font-size: 11px; font-weight: 600;
+            padding: 2px 8px; border-radius: 4px;
+            vertical-align: middle; margin-left: 8px;
+        }
+
+        h3 {
+            font-size: 1.15rem; font-weight: 600; color: var(--text);
+            margin: 32px 0 12px;
+        }
+        h4 {
+            font-size: 0.95rem; font-weight: 600; color: var(--text-dim);
+            margin: 20px 0 8px;
+        }
+
+        p { margin-bottom: 14px; color: var(--text-dim); }
+        strong { color: var(--text); font-weight: 600; }
+
+        /* ---- CARDS ---- */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin-bottom: 16px;
+        }
+        .card-header {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 12px;
+        }
+        .card-icon {
+            width: 36px; height: 36px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .card-title { font-size: 1rem; font-weight: 600; }
+
+        /* ---- FOLDER TREE ---- */
+        .tree { font-family: var(--mono); font-size: 13px; line-height: 1.9; }
+        .tree .folder { color: var(--accent); font-weight: 600; }
+        .tree .file { color: var(--text-dim); }
+        .tree .desc { color: var(--text-muted); font-family: var(--sans); font-size: 12px; }
+        .tree-indent { padding-left: 20px; border-left: 1px solid var(--border); margin-left: 8px; }
+
+        /* ---- CODE BLOCKS ---- */
+        pre {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px 20px;
+            overflow-x: auto;
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.7;
+            margin: 12px 0 16px;
+            color: var(--text-dim);
+        }
+        code {
+            font-family: var(--mono); font-size: 0.88em;
+            background: var(--surface-2); padding: 2px 6px;
+            border-radius: 4px; color: var(--cyan);
+        }
+        pre code { background: none; padding: 0; color: inherit; }
+
+        /* ---- TABLES ---- */
+        table {
+            width: 100%; border-collapse: collapse;
+            margin: 12px 0 20px;
+            font-size: 13.5px;
+        }
+        th {
+            text-align: left; padding: 10px 14px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            font-weight: 600; color: var(--text);
+            font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        td {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            vertical-align: top;
+        }
+        tr:hover td { background: var(--surface); }
+
+        /* ---- TAGS ---- */
+        .tag {
+            display: inline-block; font-size: 11px; font-weight: 600;
+            padding: 2px 8px; border-radius: 4px;
+            font-family: var(--mono);
+        }
+        .tag-blue   { background: var(--accent-glow); color: var(--accent); }
+        .tag-green  { background: var(--green-dim);  color: var(--green); }
+        .tag-orange { background: var(--orange-dim); color: var(--orange); }
+        .tag-pink   { background: var(--pink-dim);   color: var(--pink); }
+        .tag-cyan   { background: var(--cyan-dim);   color: var(--cyan); }
+        .tag-yellow { background: var(--yellow-dim); color: var(--yellow); }
+        .tag-red    { background: var(--red-dim);    color: var(--red); }
+        .tag-purple { background: var(--purple-dim); color: var(--purple); }
+
+        /* ---- FLOW DIAGRAM ---- */
+        .flow {
+            display: flex; flex-wrap: wrap; gap: 0;
+            align-items: center; margin: 20px 0;
+        }
+        .flow-step {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            text-align: center;
+            min-width: 120px;
+        }
+        .flow-step .step-num {
+            font-size: 11px; font-weight: 700;
+            color: var(--accent); margin-bottom: 4px;
+        }
+        .flow-step .step-label {
+            font-size: 13px; font-weight: 600; color: var(--text);
+        }
+        .flow-step .step-detail {
+            font-size: 11px; color: var(--text-muted); margin-top: 4px;
+        }
+        .flow-arrow {
+            font-size: 20px; color: var(--text-muted);
+            padding: 0 6px;
+        }
+
+        /* ---- COLLAPSIBLE ---- */
+        details {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 12px;
+        }
+        details[open] { border-color: var(--border-light); }
+        summary {
+            padding: 14px 20px;
+            cursor: pointer; font-weight: 600;
+            font-size: 14px;
+            list-style: none;
+            display: flex; align-items: center; gap: 10px;
+        }
+        summary::-webkit-details-marker { display: none; }
+        summary::before {
+            content: '▶'; font-size: 10px; color: var(--text-muted);
+            transition: transform .2s;
+        }
+        details[open] summary::before { transform: rotate(90deg); }
+        .details-body { padding: 0 20px 16px; }
+
+        /* ---- CALLOUT ---- */
+        .callout {
+            border-left: 3px solid var(--accent);
+            background: var(--accent-glow);
+            padding: 14px 18px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+        .callout p { margin: 0; color: var(--text); font-size: 13.5px; }
+        .callout-green { border-left-color: var(--green); background: var(--green-dim); }
+        .callout-orange { border-left-color: var(--orange); background: var(--orange-dim); }
+
+        /* ---- LAYER DIAGRAM ---- */
+        .layers {
+            display: flex; flex-direction: column; gap: 4px;
+            margin: 20px 0;
+        }
+        .layer {
+            border-radius: 8px; padding: 14px 20px;
+            display: flex; align-items: center; gap: 14px;
+        }
+        .layer-label {
+            font-size: 12px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px;
+            min-width: 100px;
+        }
+        .layer-items {
+            display: flex; flex-wrap: wrap; gap: 6px;
+        }
+
+        .layer-tests   { background: var(--green-dim);  border: 1px solid rgba(74,222,128,0.2); }
+        .layer-tests .layer-label { color: var(--green); }
+        .layer-pages   { background: var(--accent-glow); border: 1px solid rgba(108,140,255,0.2); }
+        .layer-pages .layer-label { color: var(--accent); }
+        .layer-core    { background: var(--orange-dim);  border: 1px solid rgba(251,146,60,0.2); }
+        .layer-core .layer-label { color: var(--orange); }
+        .layer-utils   { background: var(--purple-dim);  border: 1px solid rgba(167,139,250,0.2); }
+        .layer-utils .layer-label { color: var(--purple); }
+        .layer-config  { background: var(--cyan-dim);    border: 1px solid rgba(34,211,238,0.2); }
+        .layer-config .layer-label { color: var(--cyan); }
+        .layer-infra   { background: var(--pink-dim);    border: 1px solid rgba(244,114,182,0.2); }
+        .layer-infra .layer-label { color: var(--pink); }
+        .layer-arrow {
+            text-align: center; color: var(--text-muted);
+            font-size: 18px; padding: 2px 0;
+        }
+
+        .fn-sig {
+            font-family: var(--mono); font-size: 13px;
+            color: var(--cyan); margin-bottom: 4px;
+        }
+        .fn-desc {
+            font-size: 13px; color: var(--text-muted);
+            margin-bottom: 14px; padding-left: 16px;
+            border-left: 2px solid var(--border);
+        }
+
+        /* ---- RESPONSIVE ---- */
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 24px 20px 80px; }
+            h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- =============== SIDEBAR =============== -->
+<nav class="sidebar">
+    <div class="sidebar-title">Runbook</div>
+    <a href="#overview">Overview</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#test-flow">Test Flow</a>
+
+    <div class="nav-group">Project Structure</div>
+    <a href="#folder-tree">Folder Tree</a>
+    <a href="#folder-config">config/</a>
+    <a href="#folder-core">core/</a>
+    <a href="#folder-pages">pages/</a>
+    <a href="#folder-tests">tests/</a>
+    <a href="#folder-utils">utils/</a>
+    <a href="#folder-data">data/</a>
+    <a href="#folder-root">Root Files</a>
+
+    <div class="nav-group">Core Engine</div>
+    <a href="#smart-locator">SmartLocator</a>
+    <a href="#base-page">BasePage</a>
+    <a href="#retry-handler">Retry Handler</a>
+    <a href="#logger-config">Logger</a>
+
+    <div class="nav-group">Page Objects</div>
+    <a href="#home-page">HomePage</a>
+    <a href="#search-results-page">SearchResultsPage</a>
+    <a href="#product-page">ProductPage</a>
+    <a href="#cart-page">CartPage</a>
+
+    <div class="nav-group">Tests &amp; Fixtures</div>
+    <a href="#fixtures">Fixtures</a>
+    <a href="#test-e2e">E2E Test</a>
+    <a href="#test-smoke">Smoke Test</a>
+
+    <div class="nav-group">Utilities</div>
+    <a href="#data-loader">Data Loader</a>
+    <a href="#allure-helper">Allure Helper</a>
+    <a href="#screenshot-mgr">Screenshot Manager</a>
+
+    <div class="nav-group">Config &amp; Infra</div>
+    <a href="#settings">Settings</a>
+    <a href="#config-yaml">config.yaml</a>
+    <a href="#docker">Docker</a>
+    <a href="#ci-cd">CI/CD Pipeline</a>
+
+    <div class="nav-group">How-To</div>
+    <a href="#howto-run">Run Tests</a>
+    <a href="#howto-add-scenario">Add a Scenario</a>
+    <a href="#howto-add-page">Add a Page Object</a>
+</nav>
+
+<!-- =============== MAIN =============== -->
+<div class="main">
+
+<!-- ======== OVERVIEW ======== -->
+<h1 id="overview">eBay E2E Framework Runbook</h1>
+<p class="subtitle">A plain-English guide to every folder, class, and function in this project — and how they all fit together.</p>
+
+<div class="card">
+    <div class="card-header">
+        <div class="card-icon" style="background:var(--accent-glow)">🎯</div>
+        <div class="card-title">What does this project do?</div>
+    </div>
+    <p>It automatically <strong>opens a web browser</strong>, goes to <strong>eBay.com</strong>, searches for products, filters by price, adds items to the shopping cart, and then <strong>checks that the cart total is within budget</strong>. It does all this without any human clicking — the code drives the browser.</p>
+    <p>Think of it as a robot shopper that tests whether eBay's website is working correctly.</p>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="card-icon" style="background:var(--green-dim)">🧰</div>
+        <div class="card-title">Key technologies</div>
+    </div>
+    <table>
+        <tr><th>Tool</th><th>What it does</th></tr>
+        <tr><td><strong>Python 3.12</strong></td><td>The programming language everything is written in</td></tr>
+        <tr><td><strong>Playwright</strong></td><td>Controls the web browser (click, type, navigate) — like a puppeteer for Chrome/Firefox/Edge</td></tr>
+        <tr><td><strong>pytest</strong></td><td>Discovers and runs tests, reports pass/fail</td></tr>
+        <tr><td><strong>Allure</strong></td><td>Generates beautiful HTML reports with screenshots and step-by-step details</td></tr>
+        <tr><td><strong>Docker</strong></td><td>Packages everything so tests can run identically on any machine</td></tr>
+        <tr><td><strong>GitHub Actions</strong></td><td>Runs tests automatically when code is pushed</td></tr>
+    </table>
+</div>
+
+
+<!-- ======== ARCHITECTURE ======== -->
+<h2 id="architecture">Architecture — The Layer Cake</h2>
+
+<p>The project is organised in <strong>layers</strong>. Upper layers use lower layers, but never the other way around. This keeps things clean and testable.</p>
+
+<div class="layers">
+    <div class="layer layer-tests">
+        <div class="layer-label">Tests</div>
+        <div class="layer-items">
+            <span class="tag tag-green">test_e2e_shopping.py</span>
+            <span class="tag tag-green">conftest.py (fixtures)</span>
+        </div>
+    </div>
+    <div class="layer-arrow">▼</div>
+    <div class="layer layer-pages">
+        <div class="layer-label">Pages</div>
+        <div class="layer-items">
+            <span class="tag tag-blue">HomePage</span>
+            <span class="tag tag-blue">SearchResultsPage</span>
+            <span class="tag tag-blue">ProductPage</span>
+            <span class="tag tag-blue">CartPage</span>
+        </div>
+    </div>
+    <div class="layer-arrow">▼</div>
+    <div class="layer layer-core">
+        <div class="layer-label">Core</div>
+        <div class="layer-items">
+            <span class="tag tag-orange">BasePage</span>
+            <span class="tag tag-orange">SmartLocator</span>
+            <span class="tag tag-orange">RetryHandler</span>
+            <span class="tag tag-orange">Logger</span>
+        </div>
+    </div>
+    <div class="layer-arrow">▼</div>
+    <div class="layer layer-utils">
+        <div class="layer-label">Utilities</div>
+        <div class="layer-items">
+            <span class="tag tag-purple">DataLoader</span>
+            <span class="tag tag-purple">AllureHelper</span>
+            <span class="tag tag-purple">ScreenshotManager</span>
+        </div>
+    </div>
+    <div class="layer-arrow">▼</div>
+    <div class="layer layer-config">
+        <div class="layer-label">Config</div>
+        <div class="layer-items">
+            <span class="tag tag-cyan">Settings</span>
+            <span class="tag tag-cyan">config.yaml</span>
+            <span class="tag tag-cyan">search_data.json</span>
+        </div>
+    </div>
+    <div class="layer-arrow">▼</div>
+    <div class="layer layer-infra">
+        <div class="layer-label">Infra</div>
+        <div class="layer-items">
+            <span class="tag tag-pink">Dockerfile</span>
+            <span class="tag tag-pink">docker-compose.yml</span>
+            <span class="tag tag-pink">GitHub Actions</span>
+        </div>
+    </div>
+</div>
+
+<div class="callout">
+    <p><strong>Rule of thumb:</strong> Tests talk to Page Objects. Page Objects talk to BasePage. BasePage talks to Playwright. Nothing talks upward.</p>
+</div>
+
+
+<!-- ======== TEST FLOW ======== -->
+<h2 id="test-flow">Test Flow — What Happens When You Run a Test</h2>
+
+<div class="flow">
+    <div class="flow-step"><div class="step-num">1</div><div class="step-label">pytest starts</div><div class="step-detail">conftest.py loads settings, launches browser</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">2</div><div class="step-label">Open eBay</div><div class="step-detail">HomePage.open() navigates, dismisses popups</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">3</div><div class="step-label">Search</div><div class="step-detail">HomePage.search("wireless headphones")</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">4</div><div class="step-label">Filter</div><div class="step-detail">Buy It Now + price range</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">5</div><div class="step-label">Collect URLs</div><div class="step-detail">Scrape items under price, paginate</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">6</div><div class="step-label">Add to Cart</div><div class="step-detail">Visit each URL, select variants, click Add</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">7</div><div class="step-label">Validate Cart</div><div class="step-detail">Assert total ≤ budget</div></div>
+</div>
+
+
+<!-- ======== FOLDER TREE ======== -->
+<h2 id="folder-tree">Folder Tree</h2>
+
+<div class="card">
+<div class="tree">
+<span class="folder">📁 playwright-ebay-e2e-framework/</span>
+<div class="tree-indent">
+    <span class="folder">📁 .github/workflows/</span> <span class="desc">— CI/CD pipeline</span>
+    <div class="tree-indent">
+        <span class="file">e2e-tests.yml</span> <span class="desc">— runs tests on push/PR across 3 browsers</span>
+    </div>
+    <span class="folder">📁 config/</span> <span class="desc">— settings &amp; configuration</span>
+    <div class="tree-indent">
+        <span class="file">__init__.py</span> <span class="desc">— exports Settings, load_settings</span><br>
+        <span class="file">config.yaml</span> <span class="desc">— timeouts, retries, browser options, URLs</span><br>
+        <span class="file">settings.py</span> <span class="desc">— loads YAML + applies env var overrides</span>
+    </div>
+    <span class="folder">📁 core/</span> <span class="desc">— the engine that powers everything</span>
+    <div class="tree-indent">
+        <span class="file">__init__.py</span> <span class="desc">— re-exports all core classes</span><br>
+        <span class="file">base_page.py</span> <span class="desc">— base class for all page objects</span><br>
+        <span class="file">logger_config.py</span> <span class="desc">— console + file logging setup</span><br>
+        <span class="file">retry_handler.py</span> <span class="desc">— retry with exponential backoff decorator</span><br>
+        <span class="file">smart_locator.py</span> <span class="desc">— SmartLocator &amp; LocatorStrategy dataclasses</span>
+    </div>
+    <span class="folder">📁 data/</span> <span class="desc">— test data (data-driven scenarios)</span>
+    <div class="tree-indent">
+        <span class="file">search_data.json</span> <span class="desc">— 3 shopping scenarios with queries &amp; budgets</span>
+    </div>
+    <span class="folder">📁 pages/</span> <span class="desc">— Page Object Model classes</span>
+    <div class="tree-indent">
+        <span class="file">__init__.py</span> <span class="desc">— exports all 4 page classes</span><br>
+        <span class="file">home_page.py</span> <span class="desc">— eBay home: search bar</span><br>
+        <span class="file">search_results_page.py</span> <span class="desc">— results: filters, pagination, item scraping</span><br>
+        <span class="file">product_page.py</span> <span class="desc">— single product: variants, add to cart</span><br>
+        <span class="file">cart_page.py</span> <span class="desc">— shopping cart: subtotal, validation</span>
+    </div>
+    <span class="folder">📁 tests/</span> <span class="desc">— test files + browser fixtures</span>
+    <div class="tree-indent">
+        <span class="file">conftest.py</span> <span class="desc">— browser, context, page fixtures</span><br>
+        <span class="file">test_e2e_shopping.py</span> <span class="desc">— E2E shopping + smoke test</span>
+    </div>
+    <span class="folder">📁 utils/</span> <span class="desc">— helper functions</span>
+    <div class="tree-indent">
+        <span class="file">__init__.py</span> <span class="desc">— re-exports all helpers</span><br>
+        <span class="file">allure_helper.py</span> <span class="desc">— attach text/JSON/HTML to reports</span><br>
+        <span class="file">data_loader.py</span> <span class="desc">— load JSON &amp; YAML files</span><br>
+        <span class="file">screenshot_manager.py</span> <span class="desc">— capture &amp; save screenshots</span>
+    </div>
+    <span class="file">conftest.py</span> <span class="desc">— root: logging, Allure env, run_id</span><br>
+    <span class="file">pyproject.toml</span> <span class="desc">— project metadata, pytest config, linter rules</span><br>
+    <span class="file">requirements.txt</span> <span class="desc">— Python dependencies with versions</span><br>
+    <span class="file">Dockerfile</span> <span class="desc">— container image for tests</span><br>
+    <span class="file">docker-compose.yml</span> <span class="desc">— multi-browser parallel runs</span><br>
+    <span class="file">README.md</span> <span class="desc">— project documentation</span><br>
+    <span class="file">presentation.html</span> <span class="desc">— interactive presentation of the framework</span>
+</div>
+</div>
+</div>
+
+
+<!-- ======== CONFIG FOLDER ======== -->
+<h2 id="folder-config">📁 config/ — Settings &amp; Configuration</h2>
+<p>This folder is the <strong>control panel</strong>. It decides how the framework behaves: which browser to use, how long to wait, how many retries to attempt, etc.</p>
+
+<h3 id="config-yaml">config.yaml</h3>
+<p>The <strong>single source of truth</strong> for all tuneable parameters. You edit this file to change behaviour without touching code.</p>
+<table>
+    <tr><th>Section</th><th>What it controls</th><th>Example values</th></tr>
+    <tr><td><code>base_url</code></td><td>Which eBay site to test</td><td><code>https://www.ebay.com</code></td></tr>
+    <tr><td><code>browsers</code></td><td>Which browsers to run</td><td><code>[chromium, firefox, msedge]</code></td></tr>
+    <tr><td><code>timeouts.default</code></td><td>How long to wait for elements (ms)</td><td><code>15000</code></td></tr>
+    <tr><td><code>retry.max_attempts</code></td><td>How many times to retry a failing action</td><td><code>3</code></td></tr>
+    <tr><td><code>browser_options.headless</code></td><td>Show browser window or run invisible</td><td><code>true</code></td></tr>
+    <tr><td><code>viewport</code></td><td>Browser window size</td><td><code>1920×1080</code></td></tr>
+    <tr><td><code>tracing.enabled</code></td><td>Record Playwright trace (replay later)</td><td><code>true</code></td></tr>
+</table>
+
+<h3 id="settings">settings.py — The Config Loader</h3>
+<p>Reads <code>config.yaml</code> and builds a <code>Settings</code> object. Then checks for <strong>environment variable overrides</strong> — so you can change behaviour without editing the YAML.</p>
+
+<details>
+<summary><span class="tag tag-cyan">class</span> Settings (dataclass)</summary>
+<div class="details-body">
+    <p>Holds every configuration value. Created once at startup, shared everywhere.</p>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>base_url</code></td><td>str</td><td>eBay URL to test</td></tr>
+        <tr><td><code>browsers</code></td><td>list[str]</td><td>Browser profile names</td></tr>
+        <tr><td><code>timeouts</code></td><td>TimeoutSettings</td><td>Timeout values in ms</td></tr>
+        <tr><td><code>retry</code></td><td>RetrySettings</td><td>Retry configuration</td></tr>
+        <tr><td><code>browser_options</code></td><td>BrowserSettings</td><td>headless, slow_mo</td></tr>
+        <tr><td><code>viewport</code></td><td>ViewportSettings</td><td>width × height</td></tr>
+        <tr><td><code>run_id</code></td><td>str</td><td>Unique ID for this test run (timestamp)</td></tr>
+    </table>
+</div>
+</details>
+
+<details>
+<summary><span class="tag tag-cyan">class</span> BrowserProfile (frozen dataclass)</summary>
+<div class="details-body">
+    <p>Maps a human name like <code>"msedge"</code> to the Playwright engine + channel it needs.</p>
+    <table>
+        <tr><th>Field</th><th>Type</th><th>Example</th></tr>
+        <tr><td><code>id</code></td><td>str</td><td><code>"msedge"</code></td></tr>
+        <tr><td><code>browser_type</code></td><td>str</td><td><code>"chromium"</code></td></tr>
+        <tr><td><code>channel</code></td><td>str | None</td><td><code>"msedge"</code></td></tr>
+    </table>
+</div>
+</details>
+
+<details>
+<summary><span class="tag tag-cyan">func</span> load_settings() → Settings</summary>
+<div class="details-body"><p>Reads <code>config.yaml</code>, builds the <code>Settings</code> object, then calls <code>_apply_env_overrides()</code> to let environment variables win.</p></div>
+</details>
+
+<details>
+<summary><span class="tag tag-cyan">func</span> resolve_browser_profile(name) → BrowserProfile</summary>
+<div class="details-body"><p>Looks up the name in <code>BROWSER_PROFILE_MAP</code> and returns the correct engine/channel combo.</p>
+<pre><code>resolve_browser_profile("msedge")
+→ BrowserProfile(id="msedge", browser_type="chromium", channel="msedge")
+
+resolve_browser_profile("firefox")
+→ BrowserProfile(id="firefox", browser_type="firefox", channel=None)</code></pre>
+</div>
+</details>
+
+<div class="callout callout-green">
+    <p><strong>Environment variable overrides:</strong> Set <code>EBAY_BASE_URL</code>, <code>EBAY_BROWSER</code>, <code>EBAY_HEADLESS</code>, <code>EBAY_RUN_ID</code>, etc. to override config.yaml values without editing files. This is how Docker and CI configure the framework.</p>
+</div>
+
+
+<!-- ======== CORE FOLDER ======== -->
+<h2 id="folder-core">📁 core/ — The Engine</h2>
+<p>This is the <strong>heart</strong> of the framework. It provides the building blocks that every page object uses.</p>
+
+<h3 id="smart-locator">smart_locator.py — The Resilient Element Finder</h3>
+
+<div class="callout">
+    <p><strong>The big idea:</strong> Instead of relying on one CSS selector that might break when eBay redesigns their site, we define <strong>multiple ways</strong> to find each element. If the first way fails, we try the second, then the third, and so on.</p>
+</div>
+
+<details>
+<summary><span class="tag tag-orange">class</span> LocatorStrategy (frozen dataclass)</summary>
+<div class="details-body">
+    <p>A single way to find an element. Has three fields:</p>
+    <table>
+        <tr><th>Field</th><th>Description</th><th>Example</th></tr>
+        <tr><td><code>method</code></td><td>The type of locator</td><td><code>"css"</code>, <code>"xpath"</code>, <code>"role"</code>, <code>"text"</code>, <code>"test_id"</code>, <code>"placeholder"</code>, <code>"label"</code></td></tr>
+        <tr><td><code>value</code></td><td>The selector expression</td><td><code>"input#gh-ac"</code>, <code>"//button[@id='search']"</code></td></tr>
+        <tr><td><code>description</code></td><td>Human-readable label for logs</td><td><code>"search input by ID"</code></td></tr>
+    </table>
+</div>
+</details>
+
+<details>
+<summary><span class="tag tag-orange">class</span> SmartLocator (dataclass)</summary>
+<div class="details-body">
+    <p>A <strong>group of strategies</strong> for one UI element. Requires at least 2 strategies (so there's always a fallback).</p>
+    <pre><code>SEARCH_INPUT = SmartLocator(
+    name="search_input",
+    strategies=[
+        LocatorStrategy("css", "input.gh-tb[type='text']", "by class"),
+        LocatorStrategy("xpath", "//input[@name='_nkw']", "by name attr"),
+    ],
+)</code></pre>
+    <p>Properties:</p>
+    <ul>
+        <li><code>.primary</code> → first strategy (the one we expect to work)</li>
+        <li><code>.fallbacks</code> → all strategies except the first</li>
+    </ul>
+</div>
+</details>
+
+<h3 id="base-page">base_page.py — The Page Object Superclass</h3>
+<p>Every page object (HomePage, SearchResultsPage, etc.) <strong>inherits from BasePage</strong>. It provides all the common browser actions: click, type, find elements, take screenshots, etc.</p>
+
+<details>
+<summary><span class="tag tag-orange">class</span> BasePage — All Methods</summary>
+<div class="details-body">
+
+<h4>Constructor</h4>
+<div class="fn-sig">__init__(self, page: Page, default_timeout: int = 10_000)</div>
+<div class="fn-desc">Takes a Playwright <code>Page</code> object and stores it. Every action uses this page.</div>
+
+<h4>Element Finding</h4>
+<div class="fn-sig">find_element(smart_locator, timeout, state="visible") → Locator</div>
+<div class="fn-desc">The core method. Tries each strategy in the SmartLocator one by one. First one that finds a visible element wins. If all fail → takes a screenshot → raises <code>SmartLocatorError</code>.</div>
+
+<div class="fn-sig">is_element_visible(smart_locator, timeout=3000) → bool</div>
+<div class="fn-desc">Like <code>find_element</code> but returns <code>True</code>/<code>False</code> instead of raising an error.</div>
+
+<h4>User Actions</h4>
+<div class="fn-sig">click(smart_locator, timeout) → None</div>
+<div class="fn-desc">Find the element, then click it.</div>
+
+<div class="fn-sig">fill(smart_locator, text, timeout) → None</div>
+<div class="fn-desc">Find an input, clear it, type the new text all at once.</div>
+
+<div class="fn-sig">type_text(smart_locator, text, delay=50, timeout) → None</div>
+<div class="fn-desc">Type character by character (with delay). Avoids autocomplete hijacking.</div>
+
+<div class="fn-sig">get_text(smart_locator, timeout) → str</div>
+<div class="fn-desc">Find the element and return its visible text content.</div>
+
+<div class="fn-sig">press_key(key: str) → None</div>
+<div class="fn-desc">Press a keyboard key like <code>"Enter"</code> or <code>"Escape"</code>.</div>
+
+<h4>Navigation</h4>
+<div class="fn-sig">navigate(url, wait_until="domcontentloaded") → None</div>
+<div class="fn-desc">Go to a URL and wait for the page to load.</div>
+
+<div class="fn-sig">get_current_url() → str</div>
+<div class="fn-desc">Returns the current page URL.</div>
+
+<h4>Screenshots &amp; Utilities</h4>
+<div class="fn-sig">take_screenshot(name) → str</div>
+<div class="fn-desc">Saves a full-page screenshot and attaches it to the Allure report.</div>
+
+<div class="fn-sig">accept_cookies_if_present() → None</div>
+<div class="fn-desc">Presses Escape to dismiss any modal overlay, then checks for GDPR cookie banner.</div>
+
+<div class="fn-sig">wait(milliseconds) → None</div>
+<div class="fn-desc">Simple sleep. Use sparingly.</div>
+
+<div class="fn-sig">scroll_to_bottom() → None</div>
+<div class="fn-desc">Scroll to the very bottom to trigger lazy-loaded content.</div>
+
+</div>
+</details>
+
+<h3 id="retry-handler">retry_handler.py — Never Give Up (Easily)</h3>
+<p>Some actions fail intermittently (network hiccup, slow page load). The retry handler <strong>automatically re-attempts</strong> with increasing delays between tries.</p>
+
+<details>
+<summary><span class="tag tag-orange">func</span> @with_retry — Decorator</summary>
+<div class="details-body">
+    <pre><code>@with_retry(max_attempts=3, backoff_factor=1.0, jitter=True)
+def _click_add_to_cart(self):
+    element = self.find_element(self.ADD_TO_CART_BUTTON)
+    element.click()</code></pre>
+    <p>If <code>_click_add_to_cart</code> throws an exception:</p>
+    <ol>
+        <li>Wait ~1 second (with random jitter)</li>
+        <li>Try again</li>
+        <li>If fails, wait ~2 seconds, try again</li>
+        <li>If still fails after 3 attempts, give up and raise the error</li>
+    </ol>
+    <table>
+        <tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr>
+        <tr><td><code>max_attempts</code></td><td>3</td><td>Total tries before giving up</td></tr>
+        <tr><td><code>backoff_factor</code></td><td>1.0</td><td>Base delay multiplier (seconds)</td></tr>
+        <tr><td><code>jitter</code></td><td>True</td><td>Add randomness so retries don't all hit at once</td></tr>
+    </table>
+</div>
+</details>
+
+<details>
+<summary><span class="tag tag-orange">func</span> retry_call() — Standalone retry</summary>
+<div class="details-body"><p>Same as the decorator but for calling any function on the fly: <code>retry_call(some_func, arg1, arg2, max_attempts=5)</code></p></div>
+</details>
+
+
+<h3 id="logger-config">logger_config.py — Structured Logging</h3>
+<p>Sets up Python's logging to write to <strong>both the console and a rotating file</strong> (<code>logs/framework.log</code>). Every page object, fixture, and utility gets its own named logger.</p>
+
+<details>
+<summary><span class="tag tag-orange">func</span> setup_logging(level="INFO")</summary>
+<div class="details-body"><p>Called once at startup. Configures the root logger with a console handler (coloured) and a file handler (rotates at 5 MB, keeps 3 backups).</p></div>
+</details>
+
+<details>
+<summary><span class="tag tag-orange">func</span> get_logger(name) → Logger</summary>
+<div class="details-body"><p>Returns a named logger. Usage: <code>logger = get_logger(__name__)</code>. The name appears in log output so you know which file produced each line.</p></div>
+</details>
+
+
+<!-- ======== PAGES FOLDER ======== -->
+<h2 id="folder-pages">📁 pages/ — Page Object Model</h2>
+<p>Each page on eBay gets its own Python class. The class knows <strong>where every button and input is</strong> (via SmartLocators) and <strong>how to interact with them</strong> (via methods).</p>
+
+<div class="callout callout-orange">
+    <p><strong>Page Object Model (POM)</strong> is a design pattern: test code never touches CSS selectors or Playwright directly. Instead it calls methods like <code>home.search("laptop")</code>. If eBay changes their HTML, you only fix the locators in one place.</p>
+</div>
+
+<!-- HOME PAGE -->
+<h3 id="home-page">HomePage — The Landing Page</h3>
+<p><strong>File:</strong> <code>pages/home_page.py</code> &nbsp; <strong>Inherits:</strong> <code>BasePage</code></p>
+
+<table>
+    <tr><th>SmartLocator</th><th>Finds</th><th>Strategies</th></tr>
+    <tr><td><code>SEARCH_INPUT</code></td><td>The search bar</td><td>CSS class <code>gh-tb</code> → XPath by <code>name="_nkw"</code></td></tr>
+    <tr><td><code>SEARCH_BUTTON</code></td><td>The 🔍 Search button</td><td>CSS <code>#gh-btn</code> → XPath by <code>value="Search"</code></td></tr>
+</table>
+
+<details>
+<summary>Methods</summary>
+<div class="details-body">
+    <div class="fn-sig">open(base_url="https://www.ebay.com") → HomePage</div>
+    <div class="fn-desc">Navigates to eBay, dismisses any cookie/modal popups. Returns <code>self</code> for chaining: <code>home.open().search("laptop")</code></div>
+
+    <div class="fn-sig">search(query: str) → None</div>
+    <div class="fn-desc">Types the query into the search bar (character by character to avoid autocomplete hijack), then presses Enter.</div>
+</div>
+</details>
+
+<!-- SEARCH RESULTS PAGE -->
+<h3 id="search-results-page">SearchResultsPage — Filtering &amp; Scraping</h3>
+<p><strong>File:</strong> <code>pages/search_results_page.py</code> &nbsp; <strong>Inherits:</strong> <code>BasePage</code></p>
+<p>This is the <strong>most complex page object</strong>. It handles price filtering, Buy It Now filtering, item scraping, price parsing, and pagination.</p>
+
+<table>
+    <tr><th>SmartLocator</th><th>Finds</th><th>Strategies</th></tr>
+    <tr><td><code>PRICE_MIN_INPUT</code></td><td>Price "from" input</td><td>CSS by <code>aria-label*='Minimum Value'</code> → XPath</td></tr>
+    <tr><td><code>PRICE_MAX_INPUT</code></td><td>Price "to" input</td><td>CSS by <code>aria-label*='Maximum Value'</code> → XPath</td></tr>
+    <tr><td><code>PRICE_SUBMIT_BUTTON</code></td><td>Submit price range</td><td>Role <code>button[name=Submit price range]</code> → CSS</td></tr>
+    <tr><td><code>RESULT_ITEMS</code></td><td>All product cards</td><td>CSS <code>li.s-card[data-viewport]</code> → <code>ul.srp-results li</code></td></tr>
+    <tr><td><code>NEXT_PAGE_BUTTON</code></td><td>Pagination "Next"</td><td>CSS <code>a.pagination__next</code> → XPath</td></tr>
+    <tr><td><code>BUY_IT_NOW_FILTER</code></td><td>"Buy It Now" tab</td><td>CSS <code>a[href*='LH_BIN']</code> → XPath with text match</td></tr>
+</table>
+
+<details>
+<summary>Methods</summary>
+<div class="details-body">
+    <div class="fn-sig">filter_buy_it_now() → None</div>
+    <div class="fn-desc">Clicks the "Buy It Now" filter link to exclude auction items (which can't be added to cart).</div>
+
+    <div class="fn-sig">apply_price_filter(max_price: float) → None</div>
+    <div class="fn-desc">Scrolls to the price filter panel, types <code>0</code> in min and <code>max_price</code> in max, then clicks Submit. Fails gracefully if the filter isn't present.</div>
+
+    <div class="fn-sig">collect_items_under_price(max_price, limit=5, max_pages=5) → list[str]</div>
+    <div class="fn-desc">The main workhorse. Scans result cards, extracts price and URL for each item. Keeps items where <code>price ≤ max_price</code>. If fewer than <code>limit</code>, clicks Next and scans the next page. Returns a list of item URLs.</div>
+
+    <div class="fn-sig">_extract_items_from_current_page(max_price) → list[str]</div>
+    <div class="fn-desc">Internal. Loops through all <code>li.s-card</code> cards. For each card: finds <code>.s-card__price</code>, parses the price, checks if it's ≤ max_price, then grabs the <code>a.s-card__link</code> href. Skips sponsored items (<code>/itm/123456</code>).</div>
+
+    <div class="fn-sig">_parse_price(text: str) → float | None</div>
+    <div class="fn-desc">Static. Extracts a number from price text like <code>"$29.99"</code>, <code>"ILS 171.25"</code>, or <code>"$12.00 to $18.00"</code> (takes lower bound). Returns <code>None</code> if unparseable.</div>
+
+    <div class="fn-sig">_go_to_next_page() → bool</div>
+    <div class="fn-desc">Clicks the "Next" pagination button. Returns <code>True</code> if it worked, <code>False</code> if there are no more pages.</div>
+</div>
+</details>
+
+<!-- PRODUCT PAGE -->
+<h3 id="product-page">ProductPage — Individual Listings</h3>
+<p><strong>File:</strong> <code>pages/product_page.py</code> &nbsp; <strong>Inherits:</strong> <code>BasePage</code></p>
+
+<table>
+    <tr><th>SmartLocator</th><th>Finds</th><th>Strategies</th></tr>
+    <tr><td><code>PRODUCT_TITLE</code></td><td>The product name heading</td><td>CSS <code>h1.x-item-title__mainTitle span</code> → XPath</td></tr>
+    <tr><td><code>PRODUCT_PRICE</code></td><td>The price display</td><td>CSS <code>div.x-price-primary span</code> (two variants)</td></tr>
+    <tr><td><code>ADD_TO_CART_BUTTON</code></td><td>"Add to cart" button</td><td>CSS by data-testid → XPath by ID → legacy CSS → text match (4 strategies!)</td></tr>
+    <tr><td><code>QUANTITY_INPUT</code></td><td>Qty input box</td><td>CSS <code>#qtyTextBox</code> → XPath by name</td></tr>
+    <tr><td><code>SIZE_DROPDOWN</code></td><td>Size selector</td><td>CSS <code>#msku-sel-1</code> → XPath</td></tr>
+    <tr><td><code>COLOR_BUTTONS</code></td><td>Colour option buttons</td><td>CSS <code>ul.x-msku</code> buttons → XPath</td></tr>
+    <tr><td><code>CART_CONFIRMATION</code></td><td>"Added to cart" text</td><td>CSS <code>:has-text('Added to cart')</code> → XPath</td></tr>
+</table>
+
+<details>
+<summary>Methods</summary>
+<div class="details-body">
+    <div class="fn-sig">add_to_cart() → bool</div>
+    <div class="fn-desc">The full flow: select random variants → click "Add to Cart" → wait for confirmation → take screenshot. Returns <code>True</code> if successful, <code>False</code> if the button wasn't found (auction items).</div>
+
+    <div class="fn-sig">select_random_variants() → None</div>
+    <div class="fn-desc">Checks if size dropdown exists → picks random size. Checks if colour buttons exist → clicks random colour. Skips silently if neither exists.</div>
+
+    <div class="fn-sig">_click_add_to_cart() → None &nbsp; <span class="tag tag-yellow">@with_retry(3)</span></div>
+    <div class="fn-desc">Clicks the Add to Cart button. Decorated with <code>@with_retry</code> so it retries up to 3 times if the click fails (e.g., page still loading).</div>
+
+    <div class="fn-sig">_wait_for_cart_confirmation() → None</div>
+    <div class="fn-desc">Waits up to 10 seconds for the "Added to cart" message to appear.</div>
+
+    <div class="fn-sig">_close_cart_overlay() → None</div>
+    <div class="fn-desc">Best-effort: checks for a close button / "Continue shopping" link and clicks it. No error if absent.</div>
+
+    <div class="fn-sig">get_product_title() → str</div>
+    <div class="fn-desc">Returns the product title, or <code>"Unknown"</code> if it can't be read.</div>
+
+    <div class="fn-sig">get_product_price() → float | None</div>
+    <div class="fn-desc">Extracts and parses the numeric price from the listing.</div>
+</div>
+</details>
+
+<!-- CART PAGE -->
+<h3 id="cart-page">CartPage — Shopping Cart</h3>
+<p><strong>File:</strong> <code>pages/cart_page.py</code> &nbsp; <strong>Inherits:</strong> <code>BasePage</code></p>
+
+<table>
+    <tr><th>SmartLocator</th><th>Finds</th><th>Strategies</th></tr>
+    <tr><td><code>CART_SUBTOTAL</code></td><td>Subtotal amount</td><td>CSS by <code>data-test-id='SUBTOTAL'</code> → XPath → fallback class</td></tr>
+    <tr><td><code>CART_TOTAL_PRICE</code></td><td>Total amount</td><td>CSS by <code>data-test-id='TOTAL'</code> → XPath</td></tr>
+    <tr><td><code>EMPTY_CART_MESSAGE</code></td><td>"no items" message</td><td>CSS <code>:has-text('no items')</code> → XPath</td></tr>
+</table>
+
+<details>
+<summary>Methods</summary>
+<div class="details-body">
+    <div class="fn-sig">open_cart() → CartPage</div>
+    <div class="fn-desc">Navigates to <code>https://cart.ebay.com</code> and waits for it to load.</div>
+
+    <div class="fn-sig">get_subtotal() → float | None</div>
+    <div class="fn-desc">Reads the subtotal (or total as fallback). Returns <code>None</code> if the cart is empty or the value can't be parsed.</div>
+
+    <div class="fn-sig">assert_cart_total_not_exceeds(budget_per_item, items_count) → None</div>
+    <div class="fn-desc">The key assertion. Calculates <code>max_allowed = budget_per_item × items_count</code>, reads the actual total, then asserts <code>actual ≤ max_allowed</code>. Attaches evidence to Allure regardless of outcome.</div>
+
+    <div class="fn-sig">is_cart_empty() → bool</div>
+    <div class="fn-desc">Returns <code>True</code> if the "no items" message is visible.</div>
+</div>
+</details>
+
+
+<!-- ======== TESTS ======== -->
+<h2 id="folder-tests">📁 tests/ — Test Files &amp; Fixtures</h2>
+
+<h3 id="fixtures">conftest.py — Browser Fixtures (The Plumbing)</h3>
+<p>This file sets up and tears down the browser for each test. pytest <strong>automatically discovers</strong> fixtures defined here.</p>
+
+<div class="callout">
+    <p><strong>What's a fixture?</strong> A function that provides something a test needs (a browser, a page, settings). pytest injects it automatically when a test declares it as a parameter.</p>
+</div>
+
+<table>
+    <tr><th>Fixture</th><th>Scope</th><th>What it provides</th></tr>
+    <tr><td><code>test_settings</code></td><td>session</td><td>The <code>Settings</code> object (loaded once, shared across all tests)</td></tr>
+    <tr><td><code>playwright_instance</code></td><td>session</td><td>Starts Playwright, yields it, then stops it when all tests are done</td></tr>
+    <tr><td><code>browser_profile</code></td><td>session</td><td>Resolves <code>EBAY_BROWSER</code> env var to a <code>BrowserProfile</code></td></tr>
+    <tr><td><code>browser</code></td><td>session</td><td>Launches the actual browser (Chrome/Firefox/Edge). One browser for the whole session.</td></tr>
+    <tr><td><code>context</code></td><td>function</td><td><strong>New browser context per test</strong> (isolated cookies, storage). Enables tracing if configured.</td></tr>
+    <tr><td><code>page</code></td><td>function</td><td><strong>New page (tab) per test</strong>. This is what page objects use to interact with the site.</td></tr>
+</table>
+
+<p>The fixture chain: <code>test_settings</code> → <code>playwright_instance</code> → <code>browser_profile</code> → <code>browser</code> → <code>context</code> → <code>page</code></p>
+
+<details>
+<summary><span class="tag tag-green">hook</span> auto_screenshot_on_failure (autouse)</summary>
+<div class="details-body"><p>Runs <strong>after every test</strong>. If the test failed, it captures a screenshot and saves the Playwright trace file. These are attached to the Allure report as evidence.</p></div>
+</details>
+
+<h3 id="test-e2e">test_e2e_shopping.py — The Main E2E Test</h3>
+
+<p>This file contains the <strong>business logic functions</strong> (matching the task spec) and the <strong>parametrised test</strong>.</p>
+
+<h4>Business Logic Functions</h4>
+
+<details>
+<summary><span class="tag tag-green">func</span> search_items_by_name_under_price(page, base_url, query, max_price, limit) → list[str]</summary>
+<div class="details-body">
+    <p>Orchestrates search + filter + collect:</p>
+    <ol>
+        <li>Creates <code>HomePage</code>, opens eBay, searches for query</li>
+        <li>Creates <code>SearchResultsPage</code>, filters to Buy It Now, applies price filter</li>
+        <li>Collects up to <code>limit</code> item URLs under <code>max_price</code></li>
+    </ol>
+</div>
+</details>
+
+<details>
+<summary><span class="tag tag-green">func</span> add_items_to_cart(page, urls) → int</summary>
+<div class="details-body">
+    <p>For each URL:</p>
+    <ol>
+        <li>Creates <code>ProductPage</code>, navigates to the URL</li>
+        <li>Reads the product title (attached to Allure)</li>
+        <li>Calls <code>add_to_cart()</code> which handles variants + clicking</li>
+        <li>Counts successes</li>
+    </ol>
+</div>
+</details>
+
+<details>
+<summary><span class="tag tag-green">func</span> assert_cart_total_not_exceeds(page, budget_per_item, items_count)</summary>
+<div class="details-body"><p>Creates <code>CartPage</code>, opens the cart, calls <code>assert_cart_total_not_exceeds()</code>.</p></div>
+</details>
+
+<h4 id="test-e2e-parametrized">The Parametrised Test</h4>
+<pre><code>@pytest.mark.parametrize("scenario", _scenarios, ids=_scenario_ids)
+def test_ebay_shopping_flow(page, test_settings, scenario):
+    # Step 1: Search + collect URLs
+    urls = search_items_by_name_under_price(...)
+    # Step 2: Add items to cart
+    added_count = add_items_to_cart(page, urls)
+    # Step 3: Validate cart total
+    assert_cart_total_not_exceeds(page, budget_per_item, added_count)</code></pre>
+
+<p>The <code>_scenarios</code> come from <code>data/search_data.json</code>. Each scenario runs as a <strong>separate test case</strong>:</p>
+
+<table>
+    <tr><th>Scenario ID</th><th>Query</th><th>Max Price</th><th>Limit</th></tr>
+    <tr><td><code>headphones_under_50</code></td><td>wireless headphones</td><td>$50</td><td>5 items</td></tr>
+    <tr><td><code>phone_case_under_20</code></td><td>phone case iPhone</td><td>$20</td><td>3 items</td></tr>
+    <tr><td><code>usb_cable_under_15</code></td><td>USB-C cable</td><td>$15</td><td>3 items</td></tr>
+</table>
+
+<h4 id="test-smoke">The Smoke Test</h4>
+<pre><code>@pytest.mark.smoke
+def test_ebay_search_returns_results(page, test_settings):
+    home = HomePage(page)
+    home.open(test_settings.base_url)
+    home.search("laptop")
+    urls = SearchResultsPage(page).collect_items_under_price(max_price=9999, limit=1)
+    assert len(urls) >= 1</code></pre>
+<p>A quick sanity check: just verifies that searching returns at least one result. No cart interaction.</p>
+
+
+<!-- ======== UTILS ======== -->
+<h2 id="folder-utils">📁 utils/ — Helper Functions</h2>
+
+<h3 id="data-loader">data_loader.py</h3>
+<table>
+    <tr><th>Function</th><th>What it does</th></tr>
+    <tr><td><code>load_json(filename)</code></td><td>Reads a JSON file from the <code>data/</code> folder</td></tr>
+    <tr><td><code>load_yaml(filename)</code></td><td>Reads a YAML file from the <code>config/</code> folder</td></tr>
+    <tr><td><code>load_test_scenarios(filename)</code></td><td>Loads the <code>test_scenarios</code> array from a JSON file. This is what feeds the parametrised test.</td></tr>
+    <tr><td><code>get_scenario_ids(scenarios)</code></td><td>Extracts the <code>id</code> field from each scenario to use as pytest test IDs (e.g., <code>[headphones_under_50]</code>).</td></tr>
+</table>
+
+<h3 id="allure-helper">allure_helper.py</h3>
+<table>
+    <tr><th>Function</th><th>What it does</th></tr>
+    <tr><td><code>attach_text(name, body)</code></td><td>Attach plain text to the current Allure step</td></tr>
+    <tr><td><code>attach_json(name, data)</code></td><td>Attach a JSON object (pretty-printed) to Allure</td></tr>
+    <tr><td><code>attach_html(name, html)</code></td><td>Attach an HTML snippet to Allure</td></tr>
+    <tr><td><code>write_allure_environment(results_dir, ...)</code></td><td>Writes <code>environment.properties</code> into the Allure results folder (browser name, URL, run ID, Python version, etc.)</td></tr>
+</table>
+
+<h3 id="screenshot-mgr">screenshot_manager.py</h3>
+<table>
+    <tr><th>Function</th><th>What it does</th></tr>
+    <tr><td><code>capture_screenshot(page, name)</code></td><td>Takes a full-page screenshot, saves to <code>screenshots/</code>, optionally attaches to Allure</td></tr>
+    <tr><td><code>capture_on_failure(page, test_name)</code></td><td>Called by the <code>auto_screenshot_on_failure</code> fixture. Prefixes filename with <code>FAILURE_</code>.</td></tr>
+</table>
+
+
+<!-- ======== DATA FOLDER ======== -->
+<h2 id="folder-data">📁 data/ — Test Data</h2>
+
+<h3>search_data.json</h3>
+<p>This is where you define <strong>what to search for</strong>. Each entry becomes a separate test case automatically.</p>
+
+<pre><code>{
+  "test_scenarios": [
+    {
+      "id": "headphones_under_50",
+      "query": "wireless headphones",
+      "max_price": 50,
+      "limit": 5,
+      "budget_per_item": 50,
+      "description": "Search for wireless headphones under $50"
+    },
+    ...
+  ]
+}</code></pre>
+
+<table>
+    <tr><th>Field</th><th>Used for</th></tr>
+    <tr><td><code>id</code></td><td>Test name in pytest output: <code>test_ebay_shopping_flow[headphones_under_50]</code></td></tr>
+    <tr><td><code>query</code></td><td>What to type in the eBay search bar</td></tr>
+    <tr><td><code>max_price</code></td><td>Price ceiling for the search filter and item collection</td></tr>
+    <tr><td><code>limit</code></td><td>Max number of items to add to cart</td></tr>
+    <tr><td><code>budget_per_item</code></td><td>Used in the cart assertion: <code>total ≤ budget_per_item × items_count</code></td></tr>
+</table>
+
+
+<!-- ======== ROOT FILES ======== -->
+<h2 id="folder-root">Root Files</h2>
+
+<h3>conftest.py (root)</h3>
+<p>The <strong>top-level</strong> conftest. Runs <em>before</em> the <code>tests/conftest.py</code>. Does three things:</p>
+<ol>
+    <li><strong>Bootstraps logging</strong> — calls <code>setup_logging()</code> so all loggers are configured</li>
+    <li><strong>Generates a run_id</strong> — a timestamp like <code>20260308_191500</code> that makes each test run's reports unique</li>
+    <li><strong>Writes Allure environment</strong> — creates the <code>environment.properties</code> file with browser name, URL, run ID</li>
+</ol>
+
+<h3>pyproject.toml</h3>
+<p>Project metadata and tool configuration in one file:</p>
+<table>
+    <tr><th>Section</th><th>What it configures</th></tr>
+    <tr><td><code>[project]</code></td><td>Name, version, Python requirement</td></tr>
+    <tr><td><code>[tool.pytest.ini_options]</code></td><td>Test paths, markers (<code>smoke</code>, <code>e2e</code>, <code>parallel</code>), log format</td></tr>
+    <tr><td><code>[tool.ruff]</code></td><td>Linter rules (120 char lines, Python 3.12 target)</td></tr>
+</table>
+
+<h3>requirements.txt</h3>
+<p>All Python packages needed: <code>playwright</code>, <code>pytest</code>, <code>pytest-xdist</code>, <code>allure-pytest</code>, <code>PyYAML</code>, etc.</p>
+
+
+<!-- ======== DOCKER ======== -->
+<h2 id="docker">Docker &amp; Docker Compose</h2>
+
+<h3>Dockerfile</h3>
+<p>Builds a container image that has <strong>everything pre-installed</strong>: Python, Playwright, all browsers (Chromium, Firefox, Edge), and the framework code.</p>
+<pre><code># Simplified view:
+FROM python:3.12-slim
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+RUN python -m playwright install --with-deps chromium firefox msedge
+COPY . .
+CMD ["pytest", "tests/", "-v", "--alluredir=allure-results"]</code></pre>
+
+<h3>docker-compose.yml</h3>
+<p>Runs <strong>three containers in parallel</strong>, each testing a different browser:</p>
+<pre><code>services:
+  test-chromium:
+    environment: EBAY_BROWSER=chromium
+    volumes: ./allure-results/chromium:/app/allure-results
+
+  test-firefox:
+    environment: EBAY_BROWSER=firefox
+    volumes: ./allure-results/firefox:/app/allure-results
+
+  test-msedge:
+    environment: EBAY_BROWSER=msedge
+    volumes: ./allure-results/msedge:/app/allure-results</code></pre>
+<p>Run with: <code>docker compose up --build</code></p>
+
+
+<!-- ======== CI/CD ======== -->
+<h2 id="ci-cd">CI/CD — GitHub Actions Pipeline</h2>
+<p><strong>File:</strong> <code>.github/workflows/e2e-tests.yml</code></p>
+
+<p>Triggers on every push to <code>main</code>/<code>develop</code>, every PR, or manually.</p>
+
+<div class="flow">
+    <div class="flow-step"><div class="step-num">Job 1</div><div class="step-label">test</div><div class="step-detail">Matrix: chromium, firefox, msedge (runs in parallel)</div></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step"><div class="step-num">Job 2</div><div class="step-label">report</div><div class="step-detail">Merge results, generate Allure report, deploy to Pages</div></div>
+</div>
+
+<p>Each matrix job:</p>
+<ol>
+    <li>Checks out code</li>
+    <li>Installs Python 3.12 + dependencies</li>
+    <li>Installs Playwright browser</li>
+    <li>Runs pytest with <code>EBAY_BROWSER</code> and <code>EBAY_RUN_ID</code> set</li>
+    <li>Uploads allure-results, screenshots, traces as artifacts</li>
+</ol>
+
+
+<!-- ======== HOW-TOs ======== -->
+<h2 id="howto-run">How-To: Run Tests</h2>
+
+<table>
+    <tr><th>What you want</th><th>Command</th></tr>
+    <tr><td>Run all tests</td><td><code>pytest tests/ -v</code></td></tr>
+    <tr><td>Run only smoke tests</td><td><code>pytest tests/ -m smoke -v</code></td></tr>
+    <tr><td>Run only E2E tests</td><td><code>pytest tests/ -m e2e -v</code></td></tr>
+    <tr><td>Run with visible browser</td><td><code>EBAY_HEADLESS=false pytest tests/ -v</code></td></tr>
+    <tr><td>Run with Edge</td><td><code>EBAY_BROWSER=msedge pytest tests/ -v</code></td></tr>
+    <tr><td>Run with Chrome (branded)</td><td><code>EBAY_BROWSER=chrome pytest tests/ -v</code></td></tr>
+    <tr><td>Run in parallel (4 workers)</td><td><code>pytest tests/ -n 4 -v</code></td></tr>
+    <tr><td>Run in Docker (all browsers)</td><td><code>docker compose up --build</code></td></tr>
+    <tr><td>Generate Allure report</td><td><code>allure serve allure-results</code></td></tr>
+</table>
+
+<div class="callout callout-green">
+    <p><strong>PowerShell note:</strong> On Windows, set env vars like this: <code>$env:EBAY_HEADLESS="false"; pytest tests/ -v</code></p>
+</div>
+
+
+<h2 id="howto-add-scenario">How-To: Add a Test Scenario</h2>
+<p>You don't need to write any code! Just edit <code>data/search_data.json</code>:</p>
+
+<pre><code>{
+  "test_scenarios": [
+    ... existing scenarios ...,
+    {
+      "id": "laptop_under_500",
+      "query": "gaming laptop",
+      "max_price": 500,
+      "limit": 3,
+      "budget_per_item": 500,
+      "description": "Search for gaming laptops under $500"
+    }
+  ]
+}</code></pre>
+<p>Next time you run <code>pytest</code>, a new test <code>test_ebay_shopping_flow[laptop_under_500]</code> will appear automatically.</p>
+
+
+<h2 id="howto-add-page">How-To: Add a New Page Object</h2>
+<ol>
+    <li>Create <code>pages/my_page.py</code></li>
+    <li>Import <code>BasePage</code>, <code>SmartLocator</code>, <code>LocatorStrategy</code></li>
+    <li>Define your SmartLocators (≥ 2 strategies each)</li>
+    <li>Write methods that call <code>self.click()</code>, <code>self.fill()</code>, <code>self.get_text()</code>, etc.</li>
+    <li>Export from <code>pages/__init__.py</code></li>
+</ol>
+
+<pre><code>from core.base_page import BasePage
+from core.smart_locator import LocatorStrategy, SmartLocator
+
+class MyPage(BasePage):
+    MY_BUTTON = SmartLocator(
+        name="my_button",
+        strategies=[
+            LocatorStrategy("css", "#my-btn", "button by ID"),
+            LocatorStrategy("role", "button, name=My Button", "button by role"),
+        ],
+    )
+
+    def click_my_button(self):
+        self.click(self.MY_BUTTON)</code></pre>
+
+
+<!-- ======== ORCHESTRATION ======== -->
+<h2>How It All Fits Together — The Full Picture</h2>
+
+<div class="card" style="border-color: var(--accent); background: linear-gradient(135deg, var(--surface), var(--surface-2));">
+    <h4 style="margin-top:0; color:var(--accent);">Startup Sequence</h4>
+    <pre><code>1. You run: pytest tests/ -v
+2. pytest discovers conftest.py (root) → calls pytest_configure()
+   → setup_logging()        # configure console + file logging
+   → load_settings()        # read config.yaml + env overrides
+   → write_allure_environment()  # create environment.properties
+
+3. pytest discovers tests/conftest.py → registers fixtures
+4. pytest discovers test_e2e_shopping.py → parametrizes scenarios from JSON
+
+5. For each test case (e.g., headphones_under_50):
+   a. Fixture chain fires:
+      test_settings → playwright_instance → browser_profile
+      → browser (launches Chrome/Firefox/Edge)
+      → context (fresh cookies/storage for this test)
+      → page (new browser tab)
+
+   b. Test function runs:
+      search_items_by_name_under_price()
+        → HomePage(page).open()    → navigates, presses Escape
+        → HomePage(page).search()  → types query, presses Enter
+        → SearchResultsPage(page).filter_buy_it_now()
+        → SearchResultsPage(page).apply_price_filter()
+        → SearchResultsPage(page).collect_items_under_price()
+           → for each li.s-card: parse price, collect URL
+           → paginate if needed
+
+      add_items_to_cart()
+        → for each URL:
+           → ProductPage(page).navigate(url)
+           → ProductPage(page).add_to_cart()
+              → select_random_variants()
+              → _click_add_to_cart()  (with @with_retry)
+              → _wait_for_cart_confirmation()
+              → take_screenshot()
+
+      assert_cart_total_not_exceeds()
+        → CartPage(page).open_cart()
+        → CartPage(page).assert_cart_total_not_exceeds()
+
+   c. Teardown:
+      → auto_screenshot_on_failure captures evidence if test failed
+      → context closes (tracing saved)
+      → (browser stays open for next test in session)
+
+6. After all tests: browser closes, Playwright stops
+7. Allure report generated from allure-results/</code></pre>
+</div>
+
+<div class="card" style="margin-top: 32px">
+    <h4 style="margin-top:0; color:var(--orange);">What happens when a locator fails?</h4>
+    <pre><code>self.click(SEARCH_INPUT)
+  → find_element(SEARCH_INPUT)
+    → Try Strategy #1: css "input.gh-tb[type='text']"
+      → locator.wait_for(state="visible", timeout=10000)
+      → ✓ Found! Return this locator.
+
+    → If Strategy #1 fails:
+      → Log warning: "✗ Strategy #1 failed: ..."
+      → Try Strategy #2: xpath "//input[@name='_nkw']"
+      → ✓ Found! Return this locator.
+
+    → If ALL strategies fail:
+      → take_screenshot("FAIL_search_input_20260308_191500.png")
+      → Attach screenshot to Allure report
+      → Raise SmartLocatorError with details of all failures</code></pre>
+</div>
+
+
+<p style="margin-top: 48px; text-align: center; color: var(--text-muted); font-size: 13px;">
+    Generated on <script>document.write(new Date().toLocaleDateString())</script> — eBay E2E Framework Runbook
+</p>
+
+</div><!-- /main -->
+</body>
+</html>

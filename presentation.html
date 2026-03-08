@@ -498,23 +498,66 @@ td code {
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
   </div>
-  <div class="section-number" style="animation-delay:0.1s">Senior Automation Developer — Technical Presentation</div>
   <h1>
     eBay E2E<br>
     <span class="highlight">Automation Framework</span>
   </h1>
   <p class="lead">
-    A production-grade end-to-end test framework built with Python 3.12, Playwright, and pytest.
-    Demonstrates clean architecture, smart locator strategies, data-driven testing, parallel
-    execution, and CI/CD integration.
+    A production-grade end-to-end test framework that automates eBay's shopping workflow — from
+    search and filtering to product selection and cart validation. Built with
+    <strong>Python 3.12</strong>, <strong>Playwright</strong>, and <strong>pytest</strong>,
+    this framework showcases how to architect a maintainable, scalable, and resilient test suite
+    that teams can confidently run in CI/CD pipelines across multiple browsers.
   </p>
+  <p style="color:var(--text-dim); max-width:680px; font-size:0.95rem; margin-bottom:2rem;">
+    The project implements a five-layer architecture — Tests, Pages, Core Engine, Utilities, and
+    Configuration — with clean separation of concerns so that each layer can evolve independently.
+    Smart locators with automatic fallback strategies ensure tests survive UI changes, while
+    exponential-backoff retry logic handles the flakiness inherent in real-world web applications.
+    Test data lives in external JSON files, so new scenarios can be added without touching a single
+    line of test code.
+  </p>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; margin-bottom:2rem; max-width:960px;">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:10px; padding:1.1rem 1.3rem;">
+      <div style="font-size:1.3rem; margin-bottom:0.4rem;">🏗️</div>
+      <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">Layered Architecture</div>
+      <div style="font-size:0.8rem; color:var(--text-dim); line-height:1.5;">Page Object Model with a shared BasePage, isolated browser contexts per test, and config-driven environment management.</div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--green); border-radius:10px; padding:1.1rem 1.3rem;">
+      <div style="font-size:1.3rem; margin-bottom:0.4rem;">🎯</div>
+      <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">Smart Locators</div>
+      <div style="font-size:0.8rem; color:var(--text-dim); line-height:1.5;">Each element carries multiple fallback strategies — CSS, XPath, role, text, test-id — tried in order until one succeeds.</div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--purple); border-radius:10px; padding:1.1rem 1.3rem;">
+      <div style="font-size:1.3rem; margin-bottom:0.4rem;">📊</div>
+      <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">Data-Driven Tests</div>
+      <div style="font-size:0.8rem; color:var(--text-dim); line-height:1.5;">Scenarios defined in JSON and injected via pytest parametrize — add new test cases by editing data, not code.</div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--orange); border-radius:10px; padding:1.1rem 1.3rem;">
+      <div style="font-size:1.3rem; margin-bottom:0.4rem;">⚡</div>
+      <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">Parallel & Cross-Browser</div>
+      <div style="font-size:0.8rem; color:var(--text-dim); line-height:1.5;">pytest-xdist runs tests in parallel; Docker Compose and GitHub Actions matrix execute across Chromium and Firefox simultaneously.</div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--red); border-radius:10px; padding:1.1rem 1.3rem;">
+      <div style="font-size:1.3rem; margin-bottom:0.4rem;">🔄</div>
+      <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">Retry & Resilience</div>
+      <div style="font-size:0.8rem; color:var(--text-dim); line-height:1.5;">Configurable retry decorator with exponential backoff and jitter absorbs transient failures without masking real bugs.</div>
+    </div>
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--accent-light); border-radius:10px; padding:1.1rem 1.3rem;">
+      <div style="font-size:1.3rem; margin-bottom:0.4rem;">📈</div>
+      <div style="font-size:0.88rem; font-weight:600; color:var(--text-bright); margin-bottom:0.3rem;">Rich Reporting</div>
+      <div style="font-size:0.8rem; color:var(--text-dim); line-height:1.5;">Allure reports with screenshots on failure, Playwright traces for debugging, and automatic deployment to GitHub Pages.</div>
+    </div>
+  </div>
+
   <div class="badges">
     <span class="badge badge-blue">Python 3.12</span>
-    <span class="badge badge-green">Playwright</span>
-    <span class="badge badge-purple">pytest</span>
+    <span class="badge badge-green">Playwright 1.49</span>
+    <span class="badge badge-purple">pytest + xdist</span>
     <span class="badge badge-orange">Allure Reports</span>
-    <span class="badge badge-blue">Docker</span>
-    <span class="badge badge-green">GitHub Actions</span>
+    <span class="badge badge-blue">Docker Compose</span>
+    <span class="badge badge-green">GitHub Actions CI</span>
   </div>
 </section>
 
@@ -609,19 +652,93 @@ td code {
     <span class="kw">raise</span> <span class="cls">SmartLocatorError</span>(<span class="str">"All strategies exhausted"</span>)</code>
     </div>
 
+    <h3 style="margin-top:2rem;">Recommended Priority Order</h3>
+    <p>Strategies should be ordered by <strong>resilience to change</strong> — user-facing attributes
+       survive refactors far better than DOM structure selectors. Playwright's own docs advocate
+       this same hierarchy: prefer locators that mirror how real users perceive the page.</p>
+
     <table>
       <thead>
-        <tr><th>Method</th><th>Playwright API</th><th>Example</th></tr>
+        <tr><th>Priority</th><th>Method</th><th>Playwright API</th><th>Why This Rank</th><th>Example</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>css</code></td><td>page.locator(selector)</td><td><code>input#gh-btn</code></td></tr>
-        <tr><td><code>xpath</code></td><td>page.locator("xpath=…")</td><td><code>//input[@name='_nkw']</code></td></tr>
-        <tr><td><code>text</code></td><td>page.get_by_text()</td><td><code>Add to cart</code></td></tr>
-        <tr><td><code>role</code></td><td>page.get_by_role()</td><td><code>button, name=Search</code></td></tr>
-        <tr><td><code>test_id</code></td><td>page.get_by_test_id()</td><td><code>ux-call-to-action</code></td></tr>
-        <tr><td><code>placeholder</code></td><td>page.get_by_placeholder()</td><td><code>Search for anything</code></td></tr>
+        <tr>
+          <td><span style="color:var(--green); font-family:var(--font-mono); font-weight:700;">1st</span></td>
+          <td><code>test_id</code></td>
+          <td>page.get_by_test_id()</td>
+          <td style="font-size:0.84rem;">Explicitly added for testing — immune to styling, layout, and copy changes</td>
+          <td><code>ux-call-to-action</code></td>
+        </tr>
+        <tr>
+          <td><span style="color:var(--green); font-family:var(--font-mono); font-weight:700;">2nd</span></td>
+          <td><code>role</code></td>
+          <td>page.get_by_role()</td>
+          <td style="font-size:0.84rem;">Reflects accessibility semantics — survives CSS refactors and DOM restructuring</td>
+          <td><code>button, name=Search</code></td>
+        </tr>
+        <tr>
+          <td><span style="color:var(--accent-light); font-family:var(--font-mono); font-weight:700;">3rd</span></td>
+          <td><code>placeholder</code></td>
+          <td>page.get_by_placeholder()</td>
+          <td style="font-size:0.84rem;">Tied to UX copy for inputs — stable unless placeholder text is rewritten</td>
+          <td><code>Search for anything</code></td>
+        </tr>
+        <tr>
+          <td><span style="color:var(--accent-light); font-family:var(--font-mono); font-weight:700;">4th</span></td>
+          <td><code>label</code></td>
+          <td>page.get_by_label()</td>
+          <td style="font-size:0.84rem;">Bound to form labels — stable and accessibility-friendly</td>
+          <td><code>Email address</code></td>
+        </tr>
+        <tr>
+          <td><span style="color:var(--orange); font-family:var(--font-mono); font-weight:700;">5th</span></td>
+          <td><code>text</code></td>
+          <td>page.get_by_text()</td>
+          <td style="font-size:0.84rem;">User-visible content — can break with i18n or marketing copy changes</td>
+          <td><code>Add to cart</code></td>
+        </tr>
+        <tr>
+          <td><span style="color:var(--orange); font-family:var(--font-mono); font-weight:700;">6th</span></td>
+          <td><code>css</code></td>
+          <td>page.locator(selector)</td>
+          <td style="font-size:0.84rem;">Depends on class names and IDs — can break with CSS-in-JS or framework updates</td>
+          <td><code>input#gh-btn</code></td>
+        </tr>
+        <tr>
+          <td><span style="color:var(--red); font-family:var(--font-mono); font-weight:700;">7th</span></td>
+          <td><code>xpath</code></td>
+          <td>page.locator("xpath=…")</td>
+          <td style="font-size:0.84rem;">Most brittle — tightly coupled to DOM tree structure and element hierarchy</td>
+          <td><code>//input[@name='_nkw']</code></td>
+        </tr>
       </tbody>
     </table>
+
+    <div style="display:flex; align-items:center; gap:1.5rem; margin-top:1.5rem; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <span style="width:10px; height:10px; border-radius:50%; background:var(--green); display:inline-block;"></span>
+        <span style="font-size:0.82rem; color:var(--text-dim);">Most resilient — use as primary</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <span style="width:10px; height:10px; border-radius:50%; background:var(--accent-light); display:inline-block;"></span>
+        <span style="font-size:0.82rem; color:var(--text-dim);">Good stability — solid secondary choice</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <span style="width:10px; height:10px; border-radius:50%; background:var(--orange); display:inline-block;"></span>
+        <span style="font-size:0.82rem; color:var(--text-dim);">Context-dependent — useful as fallback</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <span style="width:10px; height:10px; border-radius:50%; background:var(--red); display:inline-block;"></span>
+        <span style="font-size:0.82rem; color:var(--text-dim);">Last resort — most fragile</span>
+      </div>
+    </div>
+
+    <p style="margin-top:1.5rem; font-size:0.9rem;">
+      <strong style="color:var(--text-bright);">In practice:</strong> eBay doesn't expose <code>data-testid</code>
+      attributes on most elements, so this framework uses <strong>CSS</strong> or <strong>role</strong> as
+      the primary strategy and <strong>XPath</strong> as the fallback — the best available options when
+      you don't control the application under test.
+    </p>
   </div>
 </section>
 
@@ -828,21 +945,78 @@ td code {
       <div class="card">
         <span class="card-icon">🐳</span>
         <h3>Docker Compose</h3>
-        <p>Separate containers per browser. Chromium and Firefox run simultaneously with their own Allure output.</p>
+        <p>Separate containers per browser. Chromium, Firefox, and Edge run simultaneously with their own Allure output.</p>
         <div class="cmd"><span class="prompt">$</span> docker-compose up --build</div>
       </div>
     </div>
 
-    <h3 style="margin-top: 2rem;">Session Isolation</h3>
+    <h3 style="margin-top: 2rem;">Multi-Browser &amp; Channel Support</h3>
+    <p>Browser profiles map friendly names to Playwright engines and optional <strong>channels</strong>.
+       Channels launch branded builds (Chrome, Edge) instead of the bundled open-source Chromium — giving
+       you real-world coverage across browser vendors and version tracks.</p>
+
     <table>
       <thead>
-        <tr><th>Feature</th><th>Implementation</th></tr>
+        <tr><th>Profile Name</th><th>Engine</th><th>Channel</th><th>What You Get</th></tr>
       </thead>
       <tbody>
-        <tr><td>Cookies / Storage</td><td>Fresh <code>BrowserContext</code> per test</td></tr>
-        <tr><td>Viewport / Locale</td><td>Configured per context from YAML</td></tr>
-        <tr><td>Traces</td><td>Separate trace file per test</td></tr>
-        <tr><td>Reports</td><td>Unique folder per browser: <code>allure-results/chromium/</code></td></tr>
+        <tr><td><code>chromium</code></td><td>chromium</td><td>—</td><td>Playwright's bundled Chromium (latest)</td></tr>
+        <tr><td><code>chrome</code></td><td>chromium</td><td><code>chrome</code></td><td>Google Chrome stable</td></tr>
+        <tr><td><code>chrome-beta</code></td><td>chromium</td><td><code>chrome-beta</code></td><td>Chrome beta (next version)</td></tr>
+        <tr><td><code>msedge</code></td><td>chromium</td><td><code>msedge</code></td><td>Microsoft Edge stable</td></tr>
+        <tr><td><code>msedge-beta</code></td><td>chromium</td><td><code>msedge-beta</code></td><td>Edge beta (next version)</td></tr>
+        <tr><td><code>firefox</code></td><td>firefox</td><td>—</td><td>Playwright's bundled Firefox</td></tr>
+        <tr><td><code>webkit</code></td><td>webkit</td><td>—</td><td>WebKit (Safari-like)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="code-block" data-lang="Python">
+<code><span class="cm"># Resolved automatically from EBAY_BROWSER env var or config</span>
+profile = <span class="fn">resolve_browser_profile</span>(<span class="str">"msedge"</span>)
+<span class="cm"># → BrowserProfile(id='msedge', browser_type='chromium', channel='msedge')</span>
+
+browser_type.<span class="fn">launch</span>(channel=profile.channel, headless=<span class="kw">True</span>)</code>
+    </div>
+
+    <h3 style="margin-top: 2rem;">Session Isolation</h3>
+    <p>Each test runs in a <strong>completely isolated browser session</strong> — no driver sharing
+       between parallel tests. This is enforced by Playwright's context model.</p>
+    <table>
+      <thead>
+        <tr><th>Boundary</th><th>Implementation</th><th>Scope</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Cookies / Storage / Session</td><td>Fresh <code>BrowserContext</code> per test</td><td>Function (per test)</td></tr>
+        <tr><td>Viewport / Locale / Timezone</td><td>Configured per context from YAML</td><td>Function (per test)</td></tr>
+        <tr><td>Browser Process</td><td>One <code>Browser</code> instance per session</td><td>Session (shared, read-only)</td></tr>
+        <tr><td>Traces</td><td>Separate trace ZIP per test on failure</td><td>Function (per test)</td></tr>
+        <tr><td>Screenshots</td><td>Unique timestamped filename per capture</td><td>Function (per test)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 2rem;">Separate Reports per Run</h3>
+    <p>Every test invocation generates a unique <strong>run ID</strong> (timestamp-based, or set via
+       <code>EBAY_RUN_ID</code>). Allure results are written into a timestamped sub-folder so
+       previous results are never overwritten.</p>
+    <div class="code-block" data-lang="File Tree">
+<code>allure-results/
+├── run_20260308_143052/      <span class="cm"># ← First run</span>
+│   ├── environment.properties
+│   ├── *-result.json
+│   └── *-attachment.png
+├── run_20260308_150000/      <span class="cm"># ← Second run (preserved)</span>
+│   └── …
+└── run_gh_12345678_1/        <span class="cm"># ← CI run (GitHub run ID)</span>
+    └── …</code>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Environment</th><th>Run ID Source</th><th>Report Path</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Local</td><td>Auto-generated timestamp</td><td><code>allure-results/&lt;browser&gt;/run_20260308_143052/</code></td></tr>
+        <tr><td>Docker Compose</td><td>Auto-generated per container</td><td><code>allure-results/msedge/run_20260308_143052/</code></td></tr>
+        <tr><td>GitHub Actions</td><td><code>gh_&lt;run_id&gt;_&lt;attempt&gt;</code></td><td><code>allure-results/chromium/run_gh_12345678_1/</code></td></tr>
       </tbody>
     </table>
   </div>
@@ -855,8 +1029,8 @@ td code {
   <div class="fade-in">
     <div class="section-number">08 — CI/CD Pipeline</div>
     <h2>GitHub Actions</h2>
-    <p>Automated on every push/PR.  Matrix strategy runs Chromium + Firefox in parallel.
-       Results are merged into a single Allure report and deployed to GitHub Pages.</p>
+    <p>Automated on every push/PR.  Matrix strategy runs Chromium, Firefox, and Edge in parallel.
+       Each job gets a unique run ID.  Results are merged into a single Allure report and deployed to GitHub Pages.</p>
 
     <div class="flow">
       <div class="flow-step">📥 Checkout</div>
@@ -877,23 +1051,26 @@ td code {
 <span class="kw">strategy</span>:
   <span class="kw">fail-fast</span>: <span class="num">false</span>
   <span class="kw">matrix</span>:
-    <span class="kw">browser</span>: [<span class="str">chromium</span>, <span class="str">firefox</span>]
+    <span class="kw">browser</span>: [<span class="str">chromium</span>, <span class="str">firefox</span>, <span class="str">msedge</span>]
 
-<span class="cm"># Each browser runs independently</span>
-<span class="cm"># All results merged into one report</span>
-<span class="cm"># Deployed to GitHub Pages on main</span></code>
+<span class="kw">env</span>:
+  <span class="kw">EBAY_RUN_ID</span>: <span class="str">"gh_${{ github.run_id }}_${{ github.run_attempt }}"</span>
+
+<span class="cm"># Each browser runs independently with a unique run ID</span>
+<span class="cm"># msedge installs chromium + Edge channel deps</span>
+<span class="cm"># All results merged → deployed to GitHub Pages</span></code>
     </div>
 
     <div class="cards" style="grid-template-columns: 1fr 1fr 1fr;">
       <div class="card">
         <span class="card-icon">🔀</span>
         <h3>Matrix</h3>
-        <p>Chromium + Firefox in parallel jobs</p>
+        <p>Chromium + Firefox + Edge in parallel jobs</p>
       </div>
       <div class="card">
         <span class="card-icon">📎</span>
         <h3>Artifacts</h3>
-        <p>Screenshots, traces, results uploaded</p>
+        <p>Screenshots, traces, results per browser per run</p>
       </div>
       <div class="card">
         <span class="card-icon">🌐</span>
@@ -915,7 +1092,7 @@ td code {
     <h3>Setup</h3>
     <div class="cmd"><span class="prompt">$</span> python -m venv venv && venv\Scripts\activate</div>
     <div class="cmd"><span class="prompt">$</span> pip install -r requirements.txt</div>
-    <div class="cmd"><span class="prompt">$</span> python -m playwright install --with-deps chromium</div>
+    <div class="cmd"><span class="prompt">$</span> python -m playwright install --with-deps chromium firefox msedge</div>
 
     <h3 style="margin-top: 1.5rem;">Run Tests</h3>
     <table>
@@ -927,6 +1104,8 @@ td code {
         <tr><td>Full E2E</td><td><code>pytest tests/ -v -m e2e --alluredir=allure-results</code></td></tr>
         <tr><td>Visible browser</td><td><code>$env:EBAY_HEADLESS="false"; pytest tests/ -v -m smoke</code></td></tr>
         <tr><td>Specific browser</td><td><code>$env:EBAY_BROWSER="firefox"; pytest tests/ -v</code></td></tr>
+        <tr><td>Microsoft Edge</td><td><code>$env:EBAY_BROWSER="msedge"; pytest tests/ -v</code></td></tr>
+        <tr><td>Chrome stable</td><td><code>$env:EBAY_BROWSER="chrome"; pytest tests/ -v</code></td></tr>
         <tr><td>Parallel</td><td><code>pytest tests/ -v -n auto --dist=loadfile</code></td></tr>
         <tr><td>Docker multi-browser</td><td><code>docker-compose up --build</code></td></tr>
       </tbody>
@@ -942,7 +1121,9 @@ td code {
       </thead>
       <tbody>
         <tr><td><code>EBAY_HEADLESS</code></td><td>Show/hide browser</td><td><code>"false"</code></td></tr>
-        <tr><td><code>EBAY_BROWSER</code></td><td>Choose browser</td><td><code>"firefox"</code></td></tr>
+        <tr><td><code>EBAY_BROWSER</code></td><td>Browser profile</td><td><code>"msedge"</code>, <code>"chrome"</code>, <code>"firefox"</code></td></tr>
+        <tr><td><code>EBAY_CHANNEL</code></td><td>Override Playwright channel</td><td><code>"msedge-beta"</code></td></tr>
+        <tr><td><code>EBAY_RUN_ID</code></td><td>Unique run identifier</td><td><code>"nightly_20260308"</code></td></tr>
         <tr><td><code>EBAY_BASE_URL</code></td><td>Target site</td><td><code>"https://www.ebay.co.uk"</code></td></tr>
         <tr><td><code>EBAY_TIMEOUT</code></td><td>Default wait (ms)</td><td><code>"20000"</code></td></tr>
         <tr><td><code>EBAY_LOG_LEVEL</code></td><td>Log verbosity</td><td><code>"DEBUG"</code></td></tr>

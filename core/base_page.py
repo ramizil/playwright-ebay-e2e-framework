@@ -415,19 +415,22 @@ class BasePage:
         self.logger.info("Pressed key: %s", key)
 
     def accept_cookies_if_present(self) -> None:
-        """Dismiss a cookie/privacy banner if one appears.
+        """Dismiss cookie banners and overlay dialogs that appear on first visit.
 
-        eBay (and most e-commerce sites) shows a GDPR cookie banner on first
-        visit.  This method clicks the "Accept" button if visible, or does
-        nothing if the banner is absent.  Keeps test logic clean.
+        eBay may show a GDPR cookie banner and/or a "Ship to" address dialog.
+        Both block interaction with the page.  Pressing Escape first clears
+        any modal overlay, then we look for the cookie banner.
         """
-        cookie_locator = SmartLocator(
-            name="cookie_accept_button",
-            strategies=[
-                LocatorStrategy("css", "#gdpr-banner-accept", "GDPR accept button"),
-                LocatorStrategy("xpath", "//button[@id='gdpr-banner-accept']", "GDPR accept XPath"),
-            ],
-        )
-        if self.is_element_visible(cookie_locator, timeout=3_000):
-            self.click(cookie_locator)
-            self.logger.info("Cookie banner dismissed")
+        # Press Escape to dismiss any modal overlay (e.g. "Ship to" dialog)
+        # that blocks clicks.  This is the most reliable cross-locale approach.
+        self.page.keyboard.press("Escape")
+        self.wait(500)
+
+        # GDPR cookie banner (EU visitors)
+        try:
+            gdpr = self.page.locator("#gdpr-banner-accept")
+            if gdpr.is_visible():
+                gdpr.click()
+                self.logger.info("Cookie banner dismissed")
+        except Exception:
+            pass

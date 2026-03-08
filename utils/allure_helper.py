@@ -63,6 +63,7 @@ def write_allure_environment(
     results_dir: str,
     browser: str,
     base_url: str,
+    run_id: str = "",
     extra: Dict[str, str] | None = None,
 ) -> None:
     """Write an ``environment.properties`` file into the Allure results folder.
@@ -72,8 +73,9 @@ def write_allure_environment(
 
     Args:
         results_dir: Path to the ``allure-results`` directory.
-        browser:     Browser name (e.g. ``'chromium'``).
+        browser:     Browser profile name (e.g. ``'msedge'``).
         base_url:    The site under test.
+        run_id:      Unique run identifier for this test session.
         extra:       Optional additional key-value pairs.
     """
     props = {
@@ -82,6 +84,8 @@ def write_allure_environment(
         "Framework": "Playwright + pytest",
         "Language": "Python 3.12",
     }
+    if run_id:
+        props["Run ID"] = run_id
     if extra:
         props.update(extra)
 

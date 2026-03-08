@@ -45,36 +45,32 @@ class SearchResultsPage(BasePage):
     PRICE_MIN_INPUT = SmartLocator(
         name="price_filter_min",
         strategies=[
-            LocatorStrategy("css", "input.x-textrange__input--from", "price min by class"),
-            LocatorStrategy("xpath", "//input[contains(@class, 'x-textrange__input--from')]", "price min XPath"),
+            LocatorStrategy("css", "input.textbox__control[aria-label*='Minimum Value']", "price min by aria-label"),
+            LocatorStrategy("xpath", "//input[contains(@aria-label, 'Minimum Value')]", "price min XPath"),
         ],
     )
 
     PRICE_MAX_INPUT = SmartLocator(
         name="price_filter_max",
         strategies=[
-            LocatorStrategy("css", "input.x-textrange__input--to", "price max by class"),
-            LocatorStrategy("xpath", "//input[contains(@class, 'x-textrange__input--to')]", "price max XPath"),
+            LocatorStrategy("css", "input.textbox__control[aria-label*='Maximum Value']", "price max by aria-label"),
+            LocatorStrategy("xpath", "//input[contains(@aria-label, 'Maximum Value')]", "price max XPath"),
         ],
     )
 
     PRICE_SUBMIT_BUTTON = SmartLocator(
         name="price_filter_submit",
         strategies=[
-            LocatorStrategy("css", "button.x-textrange__button", "price submit by class"),
-            LocatorStrategy(
-                "xpath",
-                "//button[contains(@class, 'x-textrange__button') or @aria-label='Submit price range']",
-                "price submit XPath",
-            ),
+            LocatorStrategy("role", "button, name=Submit price range", "price submit by role"),
+            LocatorStrategy("css", "button[aria-label='Submit price range']", "price submit by aria-label"),
         ],
     )
 
     RESULT_ITEMS = SmartLocator(
         name="search_result_items",
         strategies=[
-            LocatorStrategy("css", "li.s-item", "result items by li.s-item"),
-            LocatorStrategy("xpath", "//li[contains(@class, 's-item')]", "result items XPath"),
+            LocatorStrategy("css", "li.s-card[data-viewport]", "result items by li.s-card"),
+            LocatorStrategy("css", "ul.srp-results li[data-viewport]", "result items via srp-results container"),
         ],
     )
 
@@ -89,7 +85,7 @@ class SearchResultsPage(BasePage):
     BUY_IT_NOW_FILTER = SmartLocator(
         name="buy_it_now_filter",
         strategies=[
-            LocatorStrategy("css", "a.srp-format-tabs-h2__link[href*='LH_BIN']", "Buy It Now tab link"),
+            LocatorStrategy("css", "a.x-refine__single-select-link[href*='LH_BIN']", "Buy It Now refine link"),
             LocatorStrategy("xpath", "//a[contains(@href, 'LH_BIN') and contains(text(), 'Buy It Now')]", "Buy It Now XPath"),
         ],
     )
@@ -220,9 +216,10 @@ class SearchResultsPage(BasePage):
     def _extract_items_from_current_page(self, max_price: float) -> List[str]:
         """Parse all result cards on the current page and filter by price.
 
-        Each eBay search result card (``li.s-item``) contains:
-        * A link (``a.s-item__link``) with the item URL.
-        * A price span (``span.s-item__price``) with the display price.
+        eBay's current DOM uses ``li.s-card[data-viewport]`` for each
+        result card, with:
+        * ``a.s-card__link`` for the item URL.
+        * ``.s-card__price`` for the display price.
 
         Items whose price cannot be parsed or exceeds ``max_price`` are
         skipped with a warning.
@@ -236,18 +233,27 @@ class SearchResultsPage(BasePage):
         urls: List[str] = []
         self.wait(1_000)
 
+        # Use .first to avoid strict-mode violation on multi-element locators
+        item_locator = self.page.locator("li.s-card[data-viewport]")
         try:
-            items_locator = self.find_element(self.RESULT_ITEMS, timeout=10_000)
-        except SmartLocatorError:
-            self.logger.warning("No result items found on page")
-            return urls
+            item_locator.first.wait_for(state="visible", timeout=10_000)
+        except Exception:
+            item_locator = self.page.locator("ul.srp-results li[data-viewport]")
+            try:
+                item_locator.first.wait_for(state="visible", timeout=5_000)
+            except Exception:
+                self.logger.warning("No result items found on page")
+                return urls
 
-        items = self.page.locator("li.s-item").all()
+        items = item_locator.all()
         self.logger.info("Found %d item cards on page", len(items))
 
         for idx, item in enumerate(items):
             try:
-                price_text = item.locator(".s-item__price").first.inner_text(timeout=2_000)
+                price_el = item.locator(".s-card__price").first
+                if not price_el.is_visible(timeout=1_000):
+                    continue
+                price_text = price_el.inner_text(timeout=2_000)
                 price = self._parse_price(price_text)
 
                 if price is None:
@@ -256,9 +262,11 @@ class SearchResultsPage(BasePage):
                 if price > max_price:
                     continue
 
-                link_el = item.locator("a.s-item__link").first
+                link_el = item.locator("a.s-card__link").first
+                if not link_el.count():
+                    link_el = item.locator("a[href*='/itm/']").first
                 href = link_el.get_attribute("href", timeout=2_000)
-                if href and "ebay.com" in href:
+                if href and "ebay.com" in href and "/itm/123456" not in href:
                     urls.append(href)
                     self.logger.info(
                         "  Item #%d: $%.2f — %s", idx, price, href[:80]
@@ -275,9 +283,10 @@ class SearchResultsPage(BasePage):
         """Extract a numeric price from eBay's display text.
 
         Handles formats like:
-        * ``'$29.99'``
+        * ``'$29.99'``  /  ``'US $29.99'``
         * ``'$12.00 to $18.00'`` → takes the lower bound
         * ``'$1,299.00'`` → strips comma
+        * ``'ILS 171.25'``  /  ``'GBP 41.35'``  /  ``'EUR 29.99'``
 
         Args:
             text: Raw price string from the DOM.
@@ -288,7 +297,14 @@ class SearchResultsPage(BasePage):
         if not text:
             return None
 
-        match = re.search(r"\$([0-9,]+\.?\d*)", text)
+        match = re.search(r"[\$£€]?\s?([0-9,]+\.?\d*)", text.strip())
+        if match:
+            value = match.group(1).replace(",", "")
+            if value:
+                return float(value)
+
+        # Fallback: grab first decimal number in the string
+        match = re.search(r"([0-9,]+\.\d{2})", text)
         if match:
             return float(match.group(1).replace(",", ""))
         return None
