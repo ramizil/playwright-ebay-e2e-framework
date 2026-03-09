@@ -573,8 +573,12 @@ td code {
 
     <div class="arch-diagram">
       <div class="arch-layer">
+        <div class="arch-label">Business Steps</div>
+        <div class="arch-files"><strong>search_actions.py</strong> · <strong>cart_actions.py</strong> — Reusable business-level actions (search, add-to-cart, validate)</div>
+      </div>
+      <div class="arch-layer" style="background:rgba(63,185,80,.07);border-color:#3fb950;">
         <div class="arch-label">Tests</div>
-        <div class="arch-files"><strong>test_e2e_shopping.py</strong> — Data-driven parametrised tests with Allure steps</div>
+        <div class="arch-files"><strong>test_shopping_flow.py</strong> · <strong>test_smoke.py</strong> — Separate scenario files, data-driven with Allure steps</div>
       </div>
       <div class="arch-layer">
         <div class="arch-label">Pages</div>
@@ -626,12 +630,21 @@ td code {
        automatically falls back — keeping tests green without manual fixes.</p>
 
     <div class="code-block" data-lang="Python">
-<code><span class="cm"># Every element gets ≥ 2 strategies</span>
+<code><span class="cm"># Tier 1 — Stable ID first, relative XPath fallback</span>
 <span class="cls">SEARCH_INPUT</span> = <span class="fn">SmartLocator</span>(
     name=<span class="str">"search_input"</span>,
     strategies=[
-        <span class="fn">LocatorStrategy</span>(<span class="str">"css"</span>,   <span class="str">"input.gh-tb[type='text']"</span>,     <span class="str">"by class"</span>),
-        <span class="fn">LocatorStrategy</span>(<span class="str">"xpath"</span>, <span class="str">"//input[@name='_nkw']"</span>,         <span class="str">"by name attr"</span>),
+        <span class="fn">LocatorStrategy</span>(<span class="str">"css"</span>,   <span class="str">"#gh-ac"</span>,                             <span class="str">"by stable ID"</span>),
+        <span class="fn">LocatorStrategy</span>(<span class="str">"xpath"</span>, <span class="str">"//input[@name='_nkw' and @type='text']"</span>, <span class="str">"by XPath attr"</span>),
+    ],
+)
+
+<span class="cm"># Tier 3 — No ID: CSS by class + data-attr, relative XPath fallback</span>
+<span class="cls">RESULT_ITEMS</span> = <span class="fn">SmartLocator</span>(
+    name=<span class="str">"search_result_items"</span>,
+    strategies=[
+        <span class="fn">LocatorStrategy</span>(<span class="str">"css"</span>,   <span class="str">"li.s-card[data-viewport]"</span>,                           <span class="str">"by class + data-attr"</span>),
+        <span class="fn">LocatorStrategy</span>(<span class="str">"xpath"</span>, <span class="str">"//ul[contains(@class,'srp-results')]//li[@data-viewport]"</span>, <span class="str">"by XPath"</span>),
     ],
 )</code>
     </div>
@@ -652,64 +665,33 @@ td code {
     <span class="kw">raise</span> <span class="cls">SmartLocatorError</span>(<span class="str">"All strategies exhausted"</span>)</code>
     </div>
 
-    <h3 style="margin-top:2rem;">Recommended Priority Order</h3>
-    <p>Strategies should be ordered by <strong>resilience to change</strong> — user-facing attributes
-       survive refactors far better than DOM structure selectors. Playwright's own docs advocate
-       this same hierarchy: prefer locators that mirror how real users perceive the page.</p>
+    <h3 style="margin-top:2rem;">Tiered Locator Strategy</h3>
+    <p>Rather than a one-size-fits-all priority list, the framework uses a <strong>tiered approach</strong>
+       that adapts Strategy #1 and #2 based on the type of identifier available on each element.
+       Strategy #2 is always a <strong>relative XPath</strong> for maximum resilience.</p>
 
     <table>
       <thead>
-        <tr><th>Priority</th><th>Method</th><th>Playwright API</th><th>Why This Rank</th><th>Example</th></tr>
+        <tr><th>Element Has&hellip;</th><th>Strategy #1 (Primary)</th><th>Strategy #2 (Fallback)</th><th>Examples</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td><span style="color:var(--green); font-family:var(--font-mono); font-weight:700;">1st</span></td>
-          <td><code>test_id</code></td>
-          <td>page.get_by_test_id()</td>
-          <td style="font-size:0.84rem;">Explicitly added for testing — immune to styling, layout, and copy changes</td>
-          <td><code>ux-call-to-action</code></td>
+          <td><span style="color:var(--green); font-weight:700;">Stable ID</span><br><span style="font-size:0.78rem; color:var(--text-dim);">Human-authored, long-lived</span></td>
+          <td><code>css</code> by <code>#id</code></td>
+          <td>Relative XPath by attribute</td>
+          <td><code>#gh-ac</code>, <code>#gh-btn</code>, <code>#atcBtn_btn_1</code>, <code>#qtyTextBox</code></td>
         </tr>
         <tr>
-          <td><span style="color:var(--green); font-family:var(--font-mono); font-weight:700;">2nd</span></td>
-          <td><code>role</code></td>
-          <td>page.get_by_role()</td>
-          <td style="font-size:0.84rem;">Reflects accessibility semantics — survives CSS refactors and DOM restructuring</td>
-          <td><code>button, name=Search</code></td>
+          <td><span style="color:var(--accent-light); font-weight:700;">Auto-generated ID</span><br><span style="font-size:0.78rem; color:var(--text-dim);">Dynamic, may change across builds</span></td>
+          <td><code>css</code> by <code>aria-label</code>, class, or <code>data-testid</code></td>
+          <td>Relative XPath by attribute</td>
+          <td><code>input[aria-label*='Minimum Value']</code>, <code>[data-test-id='SUBTOTAL']</code></td>
         </tr>
         <tr>
-          <td><span style="color:var(--accent-light); font-family:var(--font-mono); font-weight:700;">3rd</span></td>
-          <td><code>placeholder</code></td>
-          <td>page.get_by_placeholder()</td>
-          <td style="font-size:0.84rem;">Tied to UX copy for inputs — stable unless placeholder text is rewritten</td>
-          <td><code>Search for anything</code></td>
-        </tr>
-        <tr>
-          <td><span style="color:var(--accent-light); font-family:var(--font-mono); font-weight:700;">4th</span></td>
-          <td><code>label</code></td>
-          <td>page.get_by_label()</td>
-          <td style="font-size:0.84rem;">Bound to form labels — stable and accessibility-friendly</td>
-          <td><code>Email address</code></td>
-        </tr>
-        <tr>
-          <td><span style="color:var(--orange); font-family:var(--font-mono); font-weight:700;">5th</span></td>
-          <td><code>text</code></td>
-          <td>page.get_by_text()</td>
-          <td style="font-size:0.84rem;">User-visible content — can break with i18n or marketing copy changes</td>
-          <td><code>Add to cart</code></td>
-        </tr>
-        <tr>
-          <td><span style="color:var(--orange); font-family:var(--font-mono); font-weight:700;">6th</span></td>
-          <td><code>css</code></td>
-          <td>page.locator(selector)</td>
-          <td style="font-size:0.84rem;">Depends on class names and IDs — can break with CSS-in-JS or framework updates</td>
-          <td><code>input#gh-btn</code></td>
-        </tr>
-        <tr>
-          <td><span style="color:var(--red); font-family:var(--font-mono); font-weight:700;">7th</span></td>
-          <td><code>xpath</code></td>
-          <td>page.locator("xpath=…")</td>
-          <td style="font-size:0.84rem;">Most brittle — tightly coupled to DOM tree structure and element hierarchy</td>
-          <td><code>//input[@name='_nkw']</code></td>
+          <td><span style="color:var(--orange); font-weight:700;">No ID at all</span><br><span style="font-size:0.78rem; color:var(--text-dim);">Only class names or text visible</span></td>
+          <td><code>role</code> or <code>css</code> by attribute</td>
+          <td>Relative XPath</td>
+          <td><code>role: button, name=Submit price range</code>, <code>a.pagination__next</code></td>
         </tr>
       </tbody>
     </table>
@@ -717,28 +699,33 @@ td code {
     <div style="display:flex; align-items:center; gap:1.5rem; margin-top:1.5rem; flex-wrap:wrap;">
       <div style="display:flex; align-items:center; gap:0.4rem;">
         <span style="width:10px; height:10px; border-radius:50%; background:var(--green); display:inline-block;"></span>
-        <span style="font-size:0.82rem; color:var(--text-dim);">Most resilient — use as primary</span>
+        <span style="font-size:0.82rem; color:var(--text-dim);">Stable ID — fastest & most reliable primary</span>
       </div>
       <div style="display:flex; align-items:center; gap:0.4rem;">
         <span style="width:10px; height:10px; border-radius:50%; background:var(--accent-light); display:inline-block;"></span>
-        <span style="font-size:0.82rem; color:var(--text-dim);">Good stability — solid secondary choice</span>
+        <span style="font-size:0.82rem; color:var(--text-dim);">Auto ID — use semantic attributes instead</span>
       </div>
       <div style="display:flex; align-items:center; gap:0.4rem;">
         <span style="width:10px; height:10px; border-radius:50%; background:var(--orange); display:inline-block;"></span>
-        <span style="font-size:0.82rem; color:var(--text-dim);">Context-dependent — useful as fallback</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:0.4rem;">
-        <span style="width:10px; height:10px; border-radius:50%; background:var(--red); display:inline-block;"></span>
-        <span style="font-size:0.82rem; color:var(--text-dim);">Last resort — most fragile</span>
+        <span style="font-size:0.82rem; color:var(--text-dim);">No ID — role or class-based selector</span>
       </div>
     </div>
 
-    <p style="margin-top:1.5rem; font-size:0.9rem;">
-      <strong style="color:var(--text-bright);">In practice:</strong> eBay doesn't expose <code>data-testid</code>
-      attributes on most elements, so this framework uses <strong>CSS</strong> or <strong>role</strong> as
-      the primary strategy and <strong>XPath</strong> as the fallback — the best available options when
-      you don't control the application under test.
-    </p>
+    <h4 style="margin-top:1.8rem; color:var(--text-bright);">Why This Approach?</h4>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:1rem; margin-top:0.8rem;">
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--green); border-radius:8px; padding:0.9rem 1rem;">
+        <div style="font-weight:600; color:var(--text-bright); font-size:0.88rem; margin-bottom:0.3rem;">ID-first when safe</div>
+        <div style="font-size:0.82rem; color:var(--text-dim); line-height:1.5;">IDs like <code>#gh-ac</code> and <code>#atcBtn_btn_1</code> have been stable on eBay for years. They're the fastest selectors and survive layout refactors.</div>
+      </div>
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--accent-light); border-radius:8px; padding:0.9rem 1rem;">
+        <div style="font-weight:600; color:var(--text-bright); font-size:0.88rem; margin-bottom:0.3rem;">Never trust auto-generated IDs</div>
+        <div style="font-size:0.82rem; color:var(--text-dim); line-height:1.5;">IDs like <code>s0-28-9-0-1[3]-x-btn</code> are framework artifacts — they change on every build. Use <code>aria-label</code> or <code>data-testid</code> instead.</div>
+      </div>
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--orange); border-radius:8px; padding:0.9rem 1rem;">
+        <div style="font-weight:600; color:var(--text-bright); font-size:0.88rem; margin-bottom:0.3rem;">Relative XPath always backs you up</div>
+        <div style="font-size:0.82rem; color:var(--text-dim); line-height:1.5;">Attribute-based XPath (<code>//input[@name='_nkw']</code>) is DOM-structure-independent. It finds elements anywhere in the page, unlike absolute <code>/html/body/div[3]/…</code> paths.</div>
+      </div>
+    </div>
   </div>
 </section>
 

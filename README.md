@@ -27,7 +27,7 @@ A production-grade end-to-end test automation framework for eBay built with **Py
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        TEST LAYER                           │
-│  tests/test_e2e_shopping.py                                 │
+│  tests/test_shopping_flow.py  ·  tests/test_smoke.py        │
 │  - Data-driven parametrisation from JSON                    │
 │  - Orchestrates the E2E shopping flow                       │
 │  - Allure steps for rich reporting                          │
@@ -86,13 +86,20 @@ ebay-e2e-automation/
 ├── data/
 │   └── search_data.json       # Test scenarios (data-driven)
 ├── pages/
+│   ├── login_page.py          # eBay sign-in page object
 │   ├── home_page.py           # eBay home page object
 │   ├── search_results_page.py # Search results + price filter + paging
-│   ├── product_page.py        # Product detail + add to cart
+│   ├── product_page.py        # Product detail + variants + add to cart
 │   └── cart_page.py           # Shopping cart + total validation
 ├── tests/
 │   ├── conftest.py            # Browser/page fixtures, auto-screenshots
-│   └── test_e2e_shopping.py   # Data-driven E2E test
+│   ├── test_shopping_flow.py  # Data-driven parametrised E2E test
+│   └── test_smoke.py          # Lightweight smoke / sanity test
+├── business_steps/
+│   ├── __init__.py            # Re-exports all business actions
+│   ├── login_actions.py       # login() — Identification
+│   ├── search_actions.py      # search_items_by_name_under_price()
+│   └── cart_actions.py        # add_items_to_cart(), assert_cart_total_not_exceeds()
 ├── utils/
 │   ├── data_loader.py         # JSON/YAML file loaders
 │   ├── screenshot_manager.py  # Screenshot capture utilities

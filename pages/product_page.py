@@ -37,72 +37,78 @@ class ProductPage(BasePage):
     """
 
     # ------------------------------------------------------------------
-    # Smart Locators
+    # Smart Locators — Tiered strategy
     # ------------------------------------------------------------------
 
+    # Tier 3: No stable ID → CSS by class, XPath fallback
     PRODUCT_TITLE = SmartLocator(
         name="product_title",
         strategies=[
-            LocatorStrategy("css", "h1.x-item-title__mainTitle span", "title span inside h1"),
-            LocatorStrategy("xpath", "//h1[contains(@class, 'x-item-title')]//span", "title span XPath"),
+            LocatorStrategy("css", "h1.x-item-title__mainTitle span", "title span by class"),
+            LocatorStrategy("xpath", "//h1[contains(@class,'x-item-title__mainTitle')]//span", "title span by XPath class"),
         ],
     )
 
+    # Tier 2: Auto-generated ID → CSS by data-testid, XPath by class fallback
     PRODUCT_PRICE = SmartLocator(
         name="product_price",
         strategies=[
-            LocatorStrategy("css", "div.x-price-primary span.ux-textspanouslyrics", "price primary span"),
-            LocatorStrategy("css", "div.x-price-primary span", "price primary generic span"),
+            LocatorStrategy("css", "div.x-price-primary span", "price primary span by class"),
+            LocatorStrategy("xpath", "//div[contains(@class,'x-price-primary')]//span", "price by XPath class"),
         ],
     )
 
+    # Tier 1: Stable ID → #atcBtn_btn_1 is eBay's long-standing ATC button ID
     ADD_TO_CART_BUTTON = SmartLocator(
         name="add_to_cart_button",
         strategies=[
-            LocatorStrategy("css", "a[data-testid='ux-call-to-action'] span:has-text('Add to cart')", "add to cart by test-id"),
-            LocatorStrategy("xpath", "//a[@id='atcBtn_btn_1' or @id='isCartBtn_btn']//span", "add to cart by legacy ID"),
-            LocatorStrategy("css", "#atcBtn_btn_1", "add to cart legacy CSS"),
-            LocatorStrategy("xpath", "//span[contains(text(), 'Add to cart')]/ancestor::a", "add to cart by text"),
+            LocatorStrategy("css", "#atcBtn_btn_1", "ATC button by stable ID"),
+            LocatorStrategy("xpath", "//a[@data-testid='ux-call-to-action']//span[contains(.,'Add to cart')]", "ATC by data-testid + text"),
         ],
     )
 
+    # Tier 1: Stable ID → #qtyTextBox is eBay's long-standing quantity field
     QUANTITY_INPUT = SmartLocator(
         name="quantity_input",
         strategies=[
-            LocatorStrategy("css", "input#qtyTextBox", "quantity input by ID"),
-            LocatorStrategy("xpath", "//input[@id='qtyTextBox' or @name='quantity']", "quantity by name"),
+            LocatorStrategy("css", "#qtyTextBox", "quantity input by stable ID"),
+            LocatorStrategy("xpath", "//input[@name='quantity']", "quantity by XPath name attr"),
         ],
     )
 
+    # Tier 1: Stable ID → #msku-sel-1 is eBay's variant selector
     SIZE_DROPDOWN = SmartLocator(
         name="size_selector",
         strategies=[
-            LocatorStrategy("css", "select#msku-sel-1", "size select by ID"),
-            LocatorStrategy("xpath", "//select[contains(@id, 'msku-sel')]", "size select XPath"),
+            LocatorStrategy("css", "#msku-sel-1", "size selector by stable ID"),
+            LocatorStrategy("xpath", "//select[contains(@id,'msku-sel')]", "size selector by XPath partial ID"),
         ],
     )
 
+    # Tier 3: No ID → CSS by class, XPath fallback
     COLOR_BUTTONS = SmartLocator(
         name="color_options",
         strategies=[
-            LocatorStrategy("css", "ul.x-msku__select-box-wrapper li button", "color buttons list"),
-            LocatorStrategy("xpath", "//ul[contains(@class, 'x-msku')]//button", "color buttons XPath"),
+            LocatorStrategy("css", "ul.x-msku__select-box-wrapper li button", "colour buttons by class"),
+            LocatorStrategy("xpath", "//ul[contains(@class,'x-msku')]//li//button", "colour buttons by XPath class"),
         ],
     )
 
+    # Tier 3: No ID → CSS by data-testid / aria-label, XPath fallback
     CART_LAYER_CLOSE = SmartLocator(
         name="cart_layer_close",
         strategies=[
-            LocatorStrategy("css", "button[data-testid='ux-close-button'], button[aria-label='Close']", "close button by data-testid or aria-label"),
-            LocatorStrategy("css", "a:has-text('No thanks'), a:has-text('Continue shopping')", "continue shopping link"),
+            LocatorStrategy("css", "button[data-testid='ux-close-button'], button[aria-label='Close']", "close by data-testid or aria-label"),
+            LocatorStrategy("xpath", "//a[contains(.,'No thanks') or contains(.,'Continue shopping')]", "close overlay by XPath link text"),
         ],
     )
 
+    # Tier 3: No ID → CSS text match, XPath text fallback
     CART_CONFIRMATION = SmartLocator(
         name="cart_confirmation",
         strategies=[
-            LocatorStrategy("css", "span:has-text('Added to cart')", "added-to-cart confirmation text"),
-            LocatorStrategy("xpath", "//span[contains(text(), 'Added to cart') or contains(text(), 'added to your cart')]", "confirmation XPath"),
+            LocatorStrategy("css", "span:has-text('Added to cart')", "confirmation by text"),
+            LocatorStrategy("xpath", "//span[contains(.,'Added to cart') or contains(.,'added to your cart')]", "confirmation by XPath text"),
         ],
     )
 
@@ -110,21 +116,25 @@ class ProductPage(BasePage):
     # Variant handling
     # ------------------------------------------------------------------
 
+    MAX_RANDOM_QUANTITY = 3
+
     @allure.step("Select random available variants if required")
     def select_random_variants(self) -> None:
-        """Detect and select required product options (size, colour).
+        """Detect and select required product options (size, colour, quantity).
 
         eBay listings may require the buyer to choose a size, colour, or
         other variant before "Add to Cart" becomes active.  This method:
 
-        1. Checks if a size dropdown is present → selects a random option.
-        2. Checks if colour buttons are present → clicks a random one.
+        1. Checks if a size dropdown is present -> selects a random option.
+        2. Checks if colour buttons are present -> clicks a random one.
+        3. Sets a random quantity (1-MAX_RANDOM_QUANTITY) if the input exists.
 
         The selection is random (per the task spec) to exercise different
         paths on each run.
         """
         self._select_size_if_present()
         self._select_color_if_present()
+        self._set_random_quantity()
 
     def _select_size_if_present(self) -> None:
         """Pick a random size from the dropdown if the selector exists.
@@ -133,7 +143,7 @@ class ProductPage(BasePage):
         product requires a size.
         """
         try:
-            size_select = self.find_element(self.SIZE_DROPDOWN, timeout=3_000)
+            size_select = self.find_element(self.SIZE_DROPDOWN, timeout=3_000, optional=True)
             options: List[str] = size_select.locator("option").all_inner_texts()
             valid_options = [
                 opt for opt in options
@@ -153,7 +163,7 @@ class ProductPage(BasePage):
         clicks a random enabled one.
         """
         try:
-            self.find_element(self.COLOR_BUTTONS, timeout=3_000)
+            self.find_element(self.COLOR_BUTTONS, timeout=3_000, optional=True)
             buttons = self.page.locator(
                 "ul.x-msku__select-box-wrapper li button"
             ).all()
@@ -164,6 +174,40 @@ class ProductPage(BasePage):
                 self.logger.info("Selected a random colour option")
         except SmartLocatorError:
             self.logger.info("No colour options found — skipping")
+
+    def _set_random_quantity(self) -> None:
+        """Set a random quantity between 1 and ``MAX_RANDOM_QUANTITY``.
+
+        Reads the max-available quantity from the page (shown next to the
+        input, e.g. "3 available") and picks a random value within the
+        allowed range.  If the quantity input is absent or the current
+        value is already acceptable, exits silently.
+        """
+        try:
+            qty_input = self.find_element(self.QUANTITY_INPUT, timeout=3_000, optional=True)
+            current_val = qty_input.input_value()
+
+            max_qty = self.MAX_RANDOM_QUANTITY
+            try:
+                avail_text = self.page.locator("#qtySubTxt, #qty-test-id").first.inner_text(timeout=2_000)
+                import re
+                m = re.search(r"(\d+)\s*available", avail_text, re.IGNORECASE)
+                if m:
+                    max_qty = min(int(m.group(1)), self.MAX_RANDOM_QUANTITY)
+            except Exception:
+                pass
+
+            if max_qty < 1:
+                max_qty = 1
+
+            chosen = random.randint(1, max_qty)
+            if str(chosen) != str(current_val).strip():
+                qty_input.fill(str(chosen))
+                self.logger.info("Set quantity to %d (max available cap: %d)", chosen, max_qty)
+            else:
+                self.logger.info("Quantity already %s — keeping it", current_val)
+        except SmartLocatorError:
+            self.logger.info("No quantity input found — skipping")
 
     # ------------------------------------------------------------------
     # Add to cart
@@ -198,19 +242,20 @@ class ProductPage(BasePage):
         self._close_cart_overlay()
         return True
 
-    @with_retry(max_attempts=3, backoff_factor=1.0)
     def _click_add_to_cart(self) -> None:
         """Locate and click the "Add to Cart" button with retry.
-
-        Separated into its own method so the ``@with_retry`` decorator
-        can wrap just the click action.
 
         Raises:
             SmartLocatorError: If the button is not found after retries.
         """
-        element = self.find_element(self.ADD_TO_CART_BUTTON, timeout=8_000)
-        element.click()
-        self.logger.info("Clicked 'Add to Cart'")
+        @with_retry(max_attempts=3, backoff_factor=1.0,
+                    on_retry=self._retry_callback("click", "add_to_cart_button"))
+        def _attempt() -> None:
+            element = self.find_element(self.ADD_TO_CART_BUTTON, timeout=8_000)
+            element.click()
+            self.logger.info("Clicked 'Add to Cart'")
+
+        _attempt()
 
     def _wait_for_cart_confirmation(self) -> None:
         """Wait for eBay's "Added to cart" confirmation overlay to appear.
@@ -219,7 +264,7 @@ class ProductPage(BasePage):
         to render after the add-to-cart API call completes.
         """
         try:
-            self.find_element(self.CART_CONFIRMATION, timeout=10_000)
+            self.find_element(self.CART_CONFIRMATION, timeout=10_000, optional=True)
             self.logger.info("Cart confirmation overlay appeared")
         except SmartLocatorError:
             self.logger.warning(

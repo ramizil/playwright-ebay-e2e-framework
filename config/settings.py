@@ -162,6 +162,8 @@ class Settings:
     run_id: str = field(default_factory=lambda: os.environ.get(
         "EBAY_RUN_ID", time.strftime("%Y%m%d_%H%M%S")
     ))
+    credentials_username: str = ""
+    credentials_password: str = ""
 
     @property
     def allure_results_for_run(self) -> str:
@@ -198,6 +200,7 @@ def load_settings() -> Settings:
     viewport_cfg = cfg.get("viewport", {})
     reporting_cfg = cfg.get("reporting", {})
     logging_cfg = cfg.get("logging", {})
+    creds_cfg = cfg.get("credentials", {})
 
     settings = Settings(
         base_url=cfg.get("base_url", Settings.base_url),
@@ -224,6 +227,8 @@ def load_settings() -> Settings:
         screenshot_on_failure=cfg.get("screenshots", {}).get("on_failure", True),
         tracing_enabled=cfg.get("tracing", {}).get("enabled", True),
         log_level=logging_cfg.get("level", "INFO"),
+        credentials_username=creds_cfg.get("username", ""),
+        credentials_password=creds_cfg.get("password", ""),
     )
 
     _apply_env_overrides(settings)
@@ -268,3 +273,9 @@ def _apply_env_overrides(settings: Settings) -> None:
 
     # Publish run_id so xdist workers and subprocesses share it
     os.environ.setdefault("EBAY_RUN_ID", settings.run_id)
+
+    # Propagate config-file credentials to env vars (env vars take priority)
+    if not os.environ.get("EBAY_USERNAME") and settings.credentials_username:
+        os.environ["EBAY_USERNAME"] = settings.credentials_username
+    if not os.environ.get("EBAY_PASSWORD") and settings.credentials_password:
+        os.environ["EBAY_PASSWORD"] = settings.credentials_password

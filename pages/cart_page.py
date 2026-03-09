@@ -38,67 +38,67 @@ class CartPage(BasePage):
     CART_URL = "https://cart.ebay.com"
 
     # ------------------------------------------------------------------
-    # Smart Locators
+    # Smart Locators — Tiered strategy
     # ------------------------------------------------------------------
 
+    # Tier 2: Auto-generated ID → CSS by data-test-id, XPath by attr fallback
     CART_SUBTOTAL = SmartLocator(
         name="cart_subtotal",
         strategies=[
             LocatorStrategy(
                 "css",
-                "span.val-col [data-test-id='SUBTOTAL'] span.text-display-span__value--bold",
+                "[data-test-id='SUBTOTAL'] span.text-display-span__value--bold",
                 "subtotal by data-test-id",
             ),
             LocatorStrategy(
                 "xpath",
-                "//span[contains(@data-test-id,'SUBTOTAL')]//span[contains(@class, 'text-display-span')]",
-                "subtotal XPath variant",
-            ),
-            LocatorStrategy(
-                "css",
-                "div.item-price span.val",
-                "subtotal fallback by item-price class",
+                "//span[@data-test-id='SUBTOTAL']//span[contains(@class,'text-display-span')]",
+                "subtotal by XPath data-test-id",
             ),
         ],
     )
 
+    # Tier 3: No ID → CSS by class, XPath by class fallback
     CART_ITEM_COUNT = SmartLocator(
         name="cart_item_count",
         strategies=[
-            LocatorStrategy("css", "span.cart-count", "cart count badge"),
-            LocatorStrategy("xpath", "//span[contains(@class, 'cart-count')]", "cart count XPath"),
+            LocatorStrategy("css", "span.cart-count", "cart count by class"),
+            LocatorStrategy("xpath", "//span[contains(@class,'cart-count')]", "cart count by XPath class"),
         ],
     )
 
+    # Tier 3: No ID → CSS by class, XPath by class fallback
     CART_ITEMS_LIST = SmartLocator(
         name="cart_items_list",
         strategies=[
             LocatorStrategy("css", "div.cart-bucket-lineitem", "cart line items by class"),
-            LocatorStrategy("xpath", "//div[contains(@class, 'cart-bucket-lineitem')]", "cart line items XPath"),
+            LocatorStrategy("xpath", "//div[contains(@class,'cart-bucket-lineitem')]", "cart line items by XPath class"),
         ],
     )
 
+    # Tier 2: Auto-generated ID → CSS by data-test-id, XPath by attr fallback
     CART_TOTAL_PRICE = SmartLocator(
         name="cart_total_price",
         strategies=[
             LocatorStrategy(
                 "css",
-                "span[data-test-id='TOTAL'] span.text-display-span__value--bold",
-                "total price by test-id",
+                "[data-test-id='TOTAL'] span.text-display-span__value--bold",
+                "total by data-test-id",
             ),
             LocatorStrategy(
                 "xpath",
-                "//span[contains(@data-test-id, 'TOTAL')]//span[contains(@class, 'text-display-span')]",
-                "total price XPath",
+                "//span[@data-test-id='TOTAL']//span[contains(@class,'text-display-span')]",
+                "total by XPath data-test-id",
             ),
         ],
     )
 
+    # Tier 3: No ID → CSS text match, XPath text fallback
     EMPTY_CART_MESSAGE = SmartLocator(
         name="empty_cart_message",
         strategies=[
-            LocatorStrategy("css", "span:has-text('You have no items in your cart')", "empty cart text CSS"),
-            LocatorStrategy("xpath", "//span[contains(text(), 'no items')]", "empty cart XPath"),
+            LocatorStrategy("css", "span:has-text('You have no items in your cart')", "empty cart by text"),
+            LocatorStrategy("xpath", "//span[contains(.,'no items')]", "empty cart by XPath text"),
         ],
     )
 

@@ -29,22 +29,24 @@ class HomePage(BasePage):
     """
 
     # ------------------------------------------------------------------
-    # Smart Locators — each element has ≥ 2 strategies
+    # Smart Locators — Tiered strategy: stable ID first, relative XPath fallback
     # ------------------------------------------------------------------
 
+    # Tier 1: Stable ID → #gh-ac has been stable for years
     SEARCH_INPUT = SmartLocator(
         name="search_input",
         strategies=[
-            LocatorStrategy("css", "input.gh-tb[type='text']", "search input by class"),
-            LocatorStrategy("xpath", "//input[@type='text' and @name='_nkw']", "search input by name attr"),
+            LocatorStrategy("css", "#gh-ac", "search input by stable ID"),
+            LocatorStrategy("xpath", "//input[@name='_nkw' and @type='text']", "search input by name attr"),
         ],
     )
 
+    # Tier 1: Stable ID → #gh-btn has been stable for years
     SEARCH_BUTTON = SmartLocator(
         name="search_button",
         strategies=[
-            LocatorStrategy("css", "input#gh-btn[type='submit']", "search submit button by ID"),
-            LocatorStrategy("xpath", "//input[@type='submit' and @value='Search']", "search submit by value"),
+            LocatorStrategy("css", "#gh-btn", "search button by stable ID"),
+            LocatorStrategy("xpath", "//input[@type='submit' and @value='Search']", "search button by value attr"),
         ],
     )
 
@@ -71,16 +73,19 @@ class HomePage(BasePage):
     def search(self, query: str) -> None:
         """Type a search query and submit the search form.
 
-        Uses ``type_text`` (character-by-character) so eBay's autocomplete
-        doesn't hijack the input.  After typing, presses Enter as a more
-        reliable submit mechanism than clicking the button (which may be
-        obscured by autocomplete dropdown).
+        Types character-by-character then presses **Escape** to dismiss
+        eBay's autocomplete dropdown before pressing Enter.  Without the
+        Escape, Enter may select an autocomplete suggestion instead of
+        submitting the raw query, which leads to unexpected result pages.
 
         Args:
             query: The product search term (e.g. ``'wireless headphones'``).
         """
         self.logger.info("Searching for: '%s'", query)
         self.type_text(self.SEARCH_INPUT, query, delay=30)
+        self.page.wait_for_timeout(300)
+        self.press_key("Escape")
+        self.page.wait_for_timeout(200)
         self.press_key("Enter")
         self.page.wait_for_load_state("domcontentloaded")
         self.logger.info("Search submitted for: '%s'", query)

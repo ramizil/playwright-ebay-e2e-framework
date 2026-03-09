@@ -62,6 +62,14 @@ reporting:
   allure_results_dir: "allure-results"
   html_report_dir: "reports"
 
+# Authentication (optional — set via env vars for security)
+# When both username and password are provided, the test flow begins with
+# a sign-in step.  Leave blank or omit to run without authentication.
+# Env-var overrides: EBAY_USERNAME, EBAY_PASSWORD
+credentials:
+  username: ""          # eBay account email — prefer EBAY_USERNAME env var
+  password: ""          # eBay account password — prefer EBAY_PASSWORD env var
+
 # Logging
 logging:
   level: "INFO"         # DEBUG for maximum verbosity

@@ -9,10 +9,12 @@ dist/
 *.egg
 
 .env
+auth_state.json
 .venv
 env/
 venv/
 
+# Generated reports, screenshots, results
 reports/
 allure-results/
 allure-report/
@@ -21,13 +23,21 @@ traces/
 *.png
 *.zip
 
+# Logs
+*.log
+logs/
+server.log
+
+# Pytest / coverage
 .pytest_cache/
 htmlcov/
 .coverage
 
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-*.log
+# Temporary / generated scripts
+_inspect_dom.py

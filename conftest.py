@@ -19,6 +19,9 @@ from __future__ import annotations
 import os
 
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from core.logger_config import setup_logging, get_logger
 from config.settings import load_settings, resolve_browser_profile

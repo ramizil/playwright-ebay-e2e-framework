@@ -13,6 +13,8 @@ test function.  Key design decisions:
   for full replay debugging.
 * **Automatic screenshots on failure** – the ``auto_screenshot`` fixture
   detects test outcomes and captures a screenshot + attaches it to Allure.
+* **HTML report generation** – a self-contained HTML report with embedded
+  screenshots is generated automatically after each scenario completes.
 * **Browser parametrisation** – tests can be run across multiple browsers
   by setting ``EBAY_BROWSERS=chromium,firefox`` or via ``pytest -k``.
 """
@@ -38,11 +40,15 @@ from playwright.sync_api import (
 from config.settings import load_settings, Settings, BrowserProfile, resolve_browser_profile
 from core.logger_config import get_logger
 from utils.screenshot_manager import capture_on_failure
+from utils.step_collector import collector
+from utils.html_report_generator import generate_scenario_report, generate_run_summary
 
 logger = get_logger(__name__)
 
 TRACES_DIR = Path(__file__).resolve().parent.parent / "traces"
 TRACES_DIR.mkdir(parents=True, exist_ok=True)
+
+AUTH_STATE_FILE = Path(__file__).resolve().parent.parent / "auth_state.json"
 
 
 # ------------------------------------------------------------------
@@ -111,6 +117,12 @@ def browser(
     launch_opts: dict = {
         "headless": test_settings.browser_options.headless,
         "slow_mo": test_settings.browser_options.slow_mo,
+        "args": [
+            "--disable-blink-features=AutomationControlled",
+            "--disable-features=IsolateOrigins,site-per-process",
+            "--no-first-run",
+            "--no-default-browser-check",
+        ],
     }
     if browser_profile.channel:
         launch_opts["channel"] = browser_profile.channel
@@ -142,18 +154,32 @@ def context(
     * Its own cookies and local storage (session isolation).
     * The configured viewport size.
     * Optional tracing enabled for post-mortem debugging.
+    * Saved auth state loaded when ``auth_state.json`` exists,
+      so the browser appears as a returning logged-in user
+      (reduces CAPTCHA / bot detection triggers).
 
     Yields:
         A ``BrowserContext`` that is destroyed after the test.
     """
-    ctx = browser.new_context(
-        viewport={
+    ctx_opts: dict = {
+        "viewport": {
             "width": test_settings.viewport.width,
             "height": test_settings.viewport.height,
         },
-        locale="en-US",
-        timezone_id="America/New_York",
-    )
+        "locale": "en-US",
+        "timezone_id": "America/New_York",
+        "user_agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/125.0.0.0 Safari/537.36"
+        ),
+    }
+
+    if AUTH_STATE_FILE.exists():
+        ctx_opts["storage_state"] = str(AUTH_STATE_FILE)
+        logger.info("Loading saved auth state from %s", AUTH_STATE_FILE.name)
+
+    ctx = browser.new_context(**ctx_opts)
 
     if test_settings.tracing_enabled:
         ctx.tracing.start(screenshots=True, snapshots=True)
@@ -235,6 +261,8 @@ def pytest_runtest_makereport(item: pytest.Item, call):
     This makes the pass/fail status available to the ``auto_screenshot``
     fixture above via ``request.node.rep_call``.
 
+    Also triggers HTML report generation when the test call phase completes.
+
     Args:
         item: The test item being reported on.
         call: The call phase (setup / call / teardown).
@@ -242,3 +270,35 @@ def pytest_runtest_makereport(item: pytest.Item, call):
     outcome = yield
     rep = outcome.get_result()
     setattr(item, f"rep_{rep.when}", rep)
+
+    if rep.when == "call":
+        _generate_html_report_for_completed_scenario()
+
+
+def _generate_html_report_for_completed_scenario() -> None:
+    """Check if a scenario just completed and generate its HTML report."""
+    completed = collector.completed
+    if not completed:
+        return
+    latest = completed[-1]
+    if getattr(latest, "_report_generated", False):
+        return
+    try:
+        path = generate_scenario_report(latest)
+        latest._report_generated = True  # type: ignore[attr-defined]
+        logger.info("HTML report generated: %s", path)
+    except Exception as exc:
+        logger.warning("Failed to generate HTML report: %s", exc)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Generate a run-level summary report after all tests complete."""
+    completed = collector.completed
+    if not completed:
+        return
+    try:
+        settings = load_settings()
+        path = generate_run_summary(completed, run_id=settings.run_id)
+        logger.info("HTML summary report generated: %s", path)
+    except Exception as exc:
+        logger.warning("Failed to generate summary report: %s", exc)

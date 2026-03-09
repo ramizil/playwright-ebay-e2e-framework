@@ -6,7 +6,18 @@
       "max_price": 50.00,
       "limit": 5,
       "budget_per_item": 50.00,
-      "description": "Search for wireless headphones under $50, collect up to 5 items"
+      "description": "Search for wireless headphones under $50, collect up to 5 items, add them to cart, and verify the cart total does not exceed the budget.",
+      "expected_results": "Cart contains up to 5 wireless headphones, each priced under $50. Cart subtotal does not exceed $250 (5 × $50).",
+      "manual_steps": [
+        "Open https://www.ebay.com",
+        "Sign in to eBay (if credentials are configured)",
+        "Type 'wireless headphones' in the search bar and press Enter",
+        "Browse search results and identify up to 5 items priced under $50",
+        "Open each item page, select random variants (size/color/quantity) if present",
+        "Click 'Add to Cart' for each item",
+        "Navigate to the shopping cart",
+        "Verify the cart subtotal does not exceed $250 (5 × $50)"
+      ]
     },
     {
       "id": "phone_case_under_20",
@@ -14,7 +25,18 @@
       "max_price": 20.00,
       "limit": 3,
       "budget_per_item": 20.00,
-      "description": "Search for iPhone cases under $20, collect up to 3 items"
+      "description": "Search for iPhone cases under $20, collect up to 3 items, add them to cart, and verify the cart total does not exceed the budget.",
+      "expected_results": "Cart contains up to 3 iPhone cases, each priced under $20. Cart subtotal does not exceed $60 (3 × $20).",
+      "manual_steps": [
+        "Open https://www.ebay.com",
+        "Sign in to eBay (if credentials are configured)",
+        "Type 'phone case iPhone' in the search bar and press Enter",
+        "Browse search results and identify up to 3 items priced under $20",
+        "Open each item page, select random variants (size/color/quantity) if present",
+        "Click 'Add to Cart' for each item",
+        "Navigate to the shopping cart",
+        "Verify the cart subtotal does not exceed $60 (3 × $20)"
+      ]
     },
     {
       "id": "usb_cable_under_15",
@@ -22,7 +44,18 @@
       "max_price": 15.00,
       "limit": 4,
       "budget_per_item": 15.00,
-      "description": "Search for USB-C cables under $15, collect up to 4 items"
+      "description": "Search for USB-C cables under $15, collect up to 4 items, add them to cart, and verify the cart total does not exceed the budget.",
+      "expected_results": "Cart contains up to 4 USB-C cables, each priced under $15. Cart subtotal does not exceed $60 (4 × $15).",
+      "manual_steps": [
+        "Open https://www.ebay.com",
+        "Sign in to eBay (if credentials are configured)",
+        "Type 'USB-C cable' in the search bar and press Enter",
+        "Browse search results and identify up to 4 items priced under $15",
+        "Open each item page, select random variants (size/color/quantity) if present",
+        "Click 'Add to Cart' for each item",
+        "Navigate to the shopping cart",
+        "Verify the cart subtotal does not exceed $60 (4 × $15)"
+      ]
     }
   ]
 }

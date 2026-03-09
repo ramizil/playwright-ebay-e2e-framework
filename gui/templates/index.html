@@ -1,0 +1,2412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eBay E2E Test Runner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-dark: #0a0e17;
+  --bg-card: #111827;
+  --bg-card-hover: #1a2332;
+  --bg-input: #0d1321;
+  --accent: #3b82f6;
+  --accent-light: #60a5fa;
+  --accent-glow: rgba(59, 130, 246, 0.15);
+  --green: #10b981;
+  --green-dim: rgba(16, 185, 129, 0.15);
+  --orange: #f59e0b;
+  --orange-dim: rgba(245, 158, 11, 0.15);
+  --red: #ef4444;
+  --red-dim: rgba(239, 68, 68, 0.15);
+  --purple: #8b5cf6;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --text-bright: #f8fafc;
+  --border: #1e293b;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-dark);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+header {
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.logo h1 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.logo h1 span {
+  color: var(--accent-light);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-idle {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.status-running {
+  background: var(--accent-glow);
+  border: 1px solid var(--accent);
+  color: var(--accent-light);
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+.status-passed {
+  background: var(--green-dim);
+  border: 1px solid var(--green);
+  color: var(--green);
+}
+
+.status-failed {
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  color: var(--red);
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-running .pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Layout ── */
+.container {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem;
+  display: grid;
+  grid-template-columns: var(--col-config) var(--col-flow) 1fr;
+  gap: 1.2rem;
+  min-height: calc(100vh - 70px);
+  --col-config: 260px;
+  --col-flow: 280px;
+}
+.container.hide-config > .panel       { display: none; }
+.container.hide-flow   > .step-panel  { display: none; }
+.container.hide-config                { grid-template-columns: var(--col-flow) 1fr; }
+.container.hide-flow                  { grid-template-columns: var(--col-config) 1fr; }
+.container.hide-config.hide-flow      { grid-template-columns: 1fr; }
+
+/* resize handles for panel columns */
+.panel-resize-handle {
+  width: 6px;
+  cursor: col-resize;
+  position: absolute;
+  right: -4px;
+  top: 0; bottom: 0;
+  z-index: 20;
+  transition: background 0.15s;
+  border-radius: 3px;
+}
+.panel-resize-handle:hover,
+.panel-resize-handle.active {
+  background: var(--accent);
+}
+
+/* collapse / expand toggle in panel headers */
+.panel-collapse-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  width: 26px; height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.panel-collapse-btn:hover {
+  background: var(--accent-glow);
+  color: var(--accent-light);
+  border-color: var(--accent);
+}
+
+/* floating re-open buttons (shown when a panel is hidden) */
+.panel-reopen {
+  position: fixed;
+  top: 80px;
+  z-index: 100;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0 8px 8px 0;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  display: none;
+  align-items: center;
+  gap: 0.3rem;
+  transition: background 0.15s, color 0.15s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  writing-mode: horizontal-tb;
+}
+.panel-reopen:hover {
+  background: var(--accent-glow);
+  color: var(--accent-light);
+  border-color: var(--accent);
+}
+#reopenConfig { left: 0; }
+#reopenFlow   { left: 0; top: 130px; }
+#reopenConfig.visible { display: flex; }
+#reopenFlow.visible   { display: flex; }
+
+@media (max-width: 1100px) {
+  .container { grid-template-columns: var(--col-config) 1fr; }
+  .step-panel { display: none; }
+  .container.hide-config { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .container { grid-template-columns: 1fr; }
+}
+
+/* ── Panel (left sidebar) ── */
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  height: fit-content;
+  position: sticky;
+  top: 85px;
+  overflow: visible;
+  min-width: 0;
+  transition: width 0.2s ease;
+}
+
+.panel h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-bright);
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.1rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+select, input[type="number"] {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+select:focus, input[type="number"]:focus {
+  border-color: var(--accent);
+}
+
+select option {
+  background: var(--bg-card);
+}
+
+/* ── Checkbox list ── */
+.scenario-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.scenario-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.scenario-item:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+}
+
+.scenario-item input[type="checkbox"] {
+  accent-color: var(--accent);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.scenario-item .scenario-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.scenario-item .scenario-id {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--accent-light);
+  font-weight: 500;
+}
+
+.scenario-item .scenario-desc {
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin-top: 0.15rem;
+}
+
+/* ── Toggle switch ── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
+
+.toggle-row span {
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--border);
+  border-radius: 12px;
+  transition: background 0.3s;
+}
+
+.toggle .slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-bright);
+  left: 3px;
+  top: 3px;
+  transition: transform 0.3s;
+}
+
+.toggle input:checked + .slider {
+  background: var(--accent);
+}
+
+.toggle input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+/* ── Buttons ── */
+.btn {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #2563eb);
+  color: white;
+  margin-top: 1.2rem;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.35);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid var(--red);
+  margin-top: 0.6rem;
+}
+
+.btn-danger:hover {
+  background: var(--red);
+  color: white;
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  margin-top: 0.6rem;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent-light);
+}
+
+/* ── Main content area ── */
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+/* ── Tabs ── */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px;
+  overflow: hidden;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.55rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+.tab-btn:hover:not(.active) {
+  color: var(--text-bright);
+  background: var(--bg-card-hover);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* ── Log console ── */
+.console {
+  background: #0b0f19;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.console-header span {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+
+.console-body {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: 55vh;
+  min-height: 300px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: var(--text-dim);
+}
+
+.console-body .line {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.console-body .line-pass { color: var(--green); }
+.console-body .line-fail { color: var(--red); }
+.console-body .line-warn { color: var(--orange); }
+.console-body .line-info { color: var(--accent-light); }
+.console-body .line-section { color: var(--purple); font-weight: 600; }
+
+.console-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  color: var(--text-dim);
+  gap: 0.8rem;
+}
+
+.console-placeholder .icon {
+  font-size: 2.5rem;
+  opacity: 0.3;
+}
+
+.console-placeholder p {
+  font-size: 0.9rem;
+}
+
+/* ── Screenshot gallery ── */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.gallery-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.gallery-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.gallery-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-bottom: 1px solid var(--border);
+}
+
+.gallery-card .card-name {
+  padding: 0.5rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* ── Runs history ── */
+.runs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.run-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.run-entry .run-id {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--accent-light);
+  font-weight: 500;
+}
+
+.run-entry .run-files {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.run-entry .btn-allure {
+  padding: 0.35rem 0.8rem;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent-light);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.2s;
+}
+
+.run-entry .btn-allure:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.report-badge {
+  display: inline-block; font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; padding: 2px 8px; border-radius: 4px; margin-left: 8px;
+}
+.report-badge.new { background: rgba(52,211,153,.15); color: #6ee7b7; border: 1px solid rgba(52,211,153,.25); }
+.report-badge.pass { background: rgba(52,211,153,.1); color: #6ee7b7; }
+.report-badge.fail { background: rgba(248,113,113,.1); color: #fca5a5; }
+.report-time { font-size: 0.72rem; color: var(--text-dim); }
+.btn-view-report {
+  padding: 0.35rem 0.8rem; background: rgba(52,211,153,.08);
+  border: 1px solid rgba(52,211,153,.3); border-radius: 8px;
+  color: #6ee7b7; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+  text-decoration: none; transition: all 0.2s;
+}
+.btn-view-report:hover { background: rgba(52,211,153,.2); color: white; }
+
+.screenshots-auto-label {
+  font-size: 0.72rem; color: var(--text-dim); padding: 0.3rem 0;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.screenshots-auto-label .dot { width: 6px; height: 6px; border-radius: 50%; background: #6ee7b7; animation: pulse-dot 1.2s ease-in-out infinite; }
+
+/* ── Scenario Info cards ── */
+.scenario-info-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  transition: border-color 0.2s;
+}
+.scenario-info-card:hover { border-color: var(--accent); }
+.scenario-info-card h3 {
+  font-size: 1rem; font-weight: 700; color: var(--accent-light);
+  margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;
+}
+.scenario-info-card .desc-text {
+  font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 0.8rem;
+}
+.scenario-info-card .section-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-dim); font-weight: 600; margin-bottom: 0.4rem; margin-top: 0.8rem;
+}
+.scenario-info-card ol {
+  margin: 0; padding-left: 1.5rem;
+  font-size: 0.82rem; color: var(--text-muted); line-height: 1.8;
+}
+.scenario-info-card ol li::marker { color: var(--accent); font-weight: 700; }
+.scenario-info-card .expected-box {
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.15);
+  border-radius: 8px; padding: 0.6rem 0.9rem;
+  font-size: 0.82rem; color: #6ee7b7; line-height: 1.5;
+}
+.scenario-info-empty {
+  color: var(--text-dim); text-align: center; padding: 3rem 1rem;
+  font-size: 0.85rem;
+}
+
+/* ── Lightbox ── */
+.lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.lightbox.open {
+  display: flex;
+}
+
+.lightbox img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+/* ── Stats bar ── */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.8rem;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  text-align: center;
+}
+
+.stat-card .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-bright);
+  font-family: var(--font-mono);
+}
+
+.stat-card .stat-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0.2rem;
+}
+
+.stat-card.stat-green .stat-value { color: var(--green); }
+.stat-card.stat-red .stat-value { color: var(--red); }
+.stat-card.stat-orange .stat-value { color: var(--orange); }
+.stat-card.stat-blue .stat-value { color: var(--accent-light); }
+
+/* ── Step tracker panel (vertical tree) ── */
+.step-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.2rem;
+  height: fit-content;
+  position: sticky;
+  top: 85px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  transition: width 0.2s ease;
+}
+
+.step-panel h2 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-bright);
+  margin-bottom: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.scenario-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--accent-light);
+  background: var(--accent-glow);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.scenario-badge .scenario-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent-light);
+  flex-shrink: 0;
+}
+
+.scenario-badge.idle { color: var(--text-dim); background: var(--bg-input); border-color: var(--border); }
+.scenario-badge.idle .scenario-dot { background: var(--text-dim); }
+.scenario-badge.running .scenario-dot { animation: pulse-dot 1.2s ease-in-out infinite; }
+
+.step-tree { display: flex; flex-direction: column; gap: 0; }
+
+/* ── Tree step (top-level) ── */
+.tree-step {
+  position: relative;
+}
+
+.tree-step-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.tree-step-header:hover { background: var(--bg-card-hover); }
+
+.tree-arrow {
+  font-size: 0.55rem;
+  color: var(--text-dim);
+  width: 12px;
+  display: inline-flex;
+  justify-content: center;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.tree-step.expanded .tree-arrow { transform: rotate(90deg); }
+
+.tree-step-icon {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  border: 2px solid var(--border);
+  background: var(--bg-dark);
+  color: var(--text-dim);
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.tree-step-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  flex: 1;
+  transition: color 0.3s;
+}
+
+.tree-step-status {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+/* Tree step states */
+.tree-step.done .tree-step-icon {
+  border-color: var(--green); background: rgba(16,185,129,0.15); color: var(--green);
+}
+.tree-step.done .tree-step-label { color: var(--green); }
+.tree-step.done .tree-step-status { color: var(--green); }
+
+.tree-step.active .tree-step-icon {
+  border-color: var(--accent); background: var(--accent-glow); color: var(--accent-light);
+  box-shadow: 0 0 10px rgba(59,130,246,0.35);
+  animation: step-pulse 1.5s ease-in-out infinite;
+}
+.tree-step.active .tree-step-label { color: var(--accent-light); }
+.tree-step.active .tree-step-header { background: rgba(59,130,246,0.06); }
+
+.tree-step.fail .tree-step-icon {
+  border-color: var(--red); background: var(--red-dim); color: var(--red);
+}
+.tree-step.fail .tree-step-label { color: var(--red); }
+.tree-step.fail .tree-step-status { color: var(--red); }
+
+.tree-step.skip .tree-step-icon {
+  border-color: var(--orange); background: var(--orange-dim); color: var(--orange);
+}
+.tree-step.skip .tree-step-label { color: var(--orange); }
+
+/* Vertical connector line between steps */
+.tree-step::before {
+  content: '';
+  position: absolute;
+  left: 23px;
+  top: 36px;
+  bottom: -1px;
+  width: 2px;
+  background: var(--border);
+}
+.tree-step:last-child::before { display: none; }
+.tree-step.done::before { background: var(--green); }
+.tree-step.active::before { background: var(--accent); }
+
+/* ── Tree children (sub-actions) ── */
+.tree-children {
+  display: none;
+  position: relative;
+  margin-left: 11px;
+  border-left: 2px solid var(--border);
+}
+.tree-step.expanded > .tree-children { display: block; }
+.tree-step.done > .tree-children { border-left-color: rgba(16,185,129,0.25); }
+.tree-step.active > .tree-children { border-left-color: rgba(59,130,246,0.3); }
+.tree-step.fail > .tree-children { border-left-color: rgba(248,113,113,0.25); }
+
+.tree-child {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.2rem 0 0.2rem 1rem;
+  position: relative;
+  min-height: 22px;
+}
+
+.tree-child::before {
+  content: '';
+  position: absolute;
+  left: -2px; top: 50%;
+  width: 10px; height: 2px;
+  background: var(--border);
+}
+.tree-child:last-child::after {
+  content: '';
+  position: absolute;
+  left: -2px; top: 50%; bottom: 0;
+  width: 2px;
+  background: var(--bg-card);
+}
+
+.tree-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  margin-top: 4px;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.child-text {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Child states */
+.tree-child.active::before { background: var(--accent); }
+.tree-child.active .tree-dot { background: var(--accent-light); box-shadow: 0 0 8px rgba(59,130,246,0.5); }
+.tree-child.active .child-text {
+  color: var(--accent-light);
+  font-weight: 600;
+  background: var(--accent-glow);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+.tree-child.done::before { background: rgba(16,185,129,0.3); }
+.tree-child.done .tree-dot { background: var(--green); }
+.tree-child.done .child-text { color: rgba(16,185,129,0.7); }
+
+.tree-child.fail::before { background: rgba(248,113,113,0.3); }
+.tree-child.fail .tree-dot { background: var(--red); box-shadow: 0 0 6px rgba(248,113,113,0.4); }
+.tree-child.fail .child-text { color: var(--red); }
+
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+  50% { box-shadow: 0 0 14px 3px rgba(59, 130, 246, 0.12); }
+}
+
+/* ── No-test state for step panel ── */
+.step-tree-empty {
+  text-align: center;
+  padding: 1.5rem 0.5rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+.step-tree-empty .icon { font-size: 1.8rem; opacity: 0.25; margin-bottom: 0.5rem; }
+
+/* ── Browser live-view panel ── */
+.split-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+.browser-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+}
+
+.browser-panel.visible {
+  display: flex;
+}
+
+.browser-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.9rem;
+  background: #161d2d;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+}
+
+.browser-header .browser-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.browser-header .browser-dots span {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+
+.browser-header .dot-red { background: #ff5f57; }
+.browser-header .dot-yellow { background: #febc2e; }
+.browser-header .dot-green { background: #28c840; }
+
+.browser-header .browser-url {
+  flex: 1;
+  margin: 0 0.8rem;
+  padding: 0.25rem 0.6rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.browser-header .browser-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.browser-header .browser-controls button {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.2s;
+}
+
+.browser-header .browser-controls button:hover {
+  border-color: var(--accent);
+  color: var(--accent-light);
+}
+
+.browser-viewport {
+  position: relative;
+  background: #000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+}
+
+.browser-viewport img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.browser-viewport .no-feed {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.browser-viewport .no-feed .icon { font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.3; }
+
+/* ── Resize handle between browser and console ── */
+.resize-handle {
+  height: 8px;
+  cursor: row-resize;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover,
+.resize-handle.dragging {
+  background: var(--accent-glow);
+}
+
+.resize-handle::after {
+  content: "";
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.resize-handle:hover::after,
+.resize-handle.dragging::after {
+  background: var(--accent);
+}
+
+.browser-size-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  padding: 0 0.5rem;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ Header ═══ -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">&#9655;</div>
+    <h1>eBay E2E <span>Test Runner</span></h1>
+  </div>
+  <div id="statusBadge" class="status-badge status-idle">
+    <span class="pulse-dot"></span>
+    <span id="statusText">Idle</span>
+  </div>
+</header>
+
+<!-- floating re-open buttons (visible when panels are collapsed) -->
+<div id="reopenConfig" class="panel-reopen" onclick="togglePanel('config')" title="Show Configuration">&#9881; Config</div>
+<div id="reopenFlow" class="panel-reopen" onclick="togglePanel('flow')" title="Show Test Flow">&#128203; Flow</div>
+
+<!-- ═══ Main layout ═══ -->
+<div class="container" id="mainContainer">
+
+  <!-- ── Left Panel: Controls ── -->
+  <aside class="panel" id="configPanel">
+    <h2>&#9881; Configuration <button class="panel-collapse-btn" onclick="togglePanel('config')" title="Collapse panel">&#10094;</button></h2>
+
+    <div class="form-group">
+      <label>Browser</label>
+      <select id="browserSelect"></select>
+    </div>
+
+    <div class="form-group">
+      <label>Tests &amp; Scenarios</label>
+      <div id="scenarioList" class="scenario-list"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Parallel Workers</label>
+      <input type="number" id="workersInput" value="1" min="1" max="8">
+    </div>
+
+    <div class="form-group">
+      <div class="toggle-row">
+        <span>Show browser (headed)</span>
+        <label class="toggle">
+          <input type="checkbox" id="headedToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <button id="runBtn" class="btn btn-primary" onclick="startRun()">
+      <span>&#9655;</span> Run Tests
+    </button>
+    <button id="stopBtn" class="btn btn-danger" style="display:none" onclick="stopRun()">
+      <span>&#9632;</span> Stop
+    </button>
+    <button class="btn btn-secondary" onclick="refreshScreenshots()">
+      &#128247; Refresh Screenshots
+    </button>
+  </aside>
+
+  <!-- ── Middle Panel: Step Tracker (vertical tree) ── -->
+  <aside class="step-panel" id="stepPanel">
+    <h2>&#128203; Test Flow <button class="panel-collapse-btn" onclick="togglePanel('flow')" title="Collapse panel">&#10094;</button></h2>
+    <div class="scenario-badge idle" id="scenarioBadge">
+      <span class="scenario-dot"></span>
+      <span id="scenarioName">No test running</span>
+    </div>
+    <div id="stepTree" class="step-tree">
+      <div class="step-tree-empty">
+        <div class="icon">&#128640;</div>
+        <div>Run a test to see<br>the step flow here</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Right: Tabs + Content ── -->
+  <div class="main">
+    <div class="stats-bar">
+      <div class="stat-card stat-blue">
+        <div class="stat-value" id="statDuration">--</div>
+        <div class="stat-label">Duration</div>
+      </div>
+      <div class="stat-card stat-green">
+        <div class="stat-value" id="statPassed">0</div>
+        <div class="stat-label">Passed</div>
+      </div>
+      <div class="stat-card stat-red">
+        <div class="stat-value" id="statFailed">0</div>
+        <div class="stat-label">Failed</div>
+      </div>
+      <div class="stat-card stat-orange">
+        <div class="stat-value" id="statSkipped">0</div>
+        <div class="stat-label">Skipped</div>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('console')">Console Output</button>
+      <button class="tab-btn" onclick="switchTab('screenshots')">Screenshots</button>
+      <button class="tab-btn" onclick="switchTab('reports')">Reports</button>
+      <button class="tab-btn" onclick="switchTab('runs')">Past Runs</button>
+      <button class="tab-btn" onclick="switchTab('scenario')">Scenario Info</button>
+    </div>
+
+    <!-- Console + Browser Live View -->
+    <div id="tab-console" class="tab-content active">
+      <div class="split-wrapper">
+
+        <!-- Browser live-view panel -->
+        <div id="browserPanel" class="browser-panel">
+          <div class="browser-header">
+            <div class="browser-dots">
+              <span class="dot-red"></span>
+              <span class="dot-yellow"></span>
+              <span class="dot-green"></span>
+            </div>
+            <div class="browser-url" id="browserUrl">Waiting for test to start...</div>
+            <div class="browser-controls">
+              <span class="browser-size-label" id="browserSizeLabel"></span>
+              <button onclick="toggleBrowserPanel()" title="Collapse">&#9660;</button>
+            </div>
+          </div>
+          <div class="browser-viewport" id="browserViewport" style="height:350px;">
+            <div class="no-feed" id="browserNoFeed">
+              <div class="icon">&#128065;</div>
+              <div>Live view will appear when tests start running</div>
+            </div>
+            <img id="browserImg" src="" alt="Browser live view" style="display:none;">
+          </div>
+        </div>
+
+        <!-- Drag handle to resize -->
+        <div id="resizeHandle" class="resize-handle" style="display:none;"></div>
+
+        <!-- Console output -->
+        <div class="console" style="flex:1; min-height:200px;">
+          <div class="console-header">
+            <span id="consoleTitle">OUTPUT</span>
+            <div style="display:flex; align-items:center; gap:0.8rem;">
+              <span id="consoleLine">0 lines</span>
+              <button onclick="toggleBrowserPanel()" id="toggleBrowserBtn"
+                style="background:var(--accent-glow); border:1px solid var(--accent); border-radius:5px; color:var(--accent-light); padding:0.2rem 0.6rem; font-size:0.72rem; font-weight:600; cursor:pointer; font-family:var(--font-body);"
+                title="Toggle browser live view">
+                &#128065; Browser View
+              </button>
+            </div>
+          </div>
+          <div class="console-body" id="consoleBody">
+            <div class="console-placeholder">
+              <div class="icon">&#128640;</div>
+              <p>Configure your test run and click <strong>Run Tests</strong></p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Screenshots -->
+    <div id="tab-screenshots" class="tab-content">
+      <div id="galleryContainer" class="gallery">
+        <div class="gallery-empty">No screenshots yet. Run a test to capture some.</div>
+      </div>
+    </div>
+
+    <!-- Reports -->
+    <div id="tab-reports" class="tab-content">
+      <div id="reportsContainer" class="runs-list"></div>
+    </div>
+
+    <!-- Past Runs -->
+    <div id="tab-runs" class="tab-content">
+      <div id="runsContainer" class="runs-list"></div>
+    </div>
+
+    <!-- Scenario Info -->
+    <div id="tab-scenario" class="tab-content">
+      <div id="scenarioInfoContainer" style="display:flex;flex-direction:column;gap:1rem;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Lightbox for full-size screenshots ═══ -->
+<div id="lightbox" class="lightbox" onclick="this.classList.remove('open')">
+  <img id="lightboxImg" src="" alt="Screenshot">
+</div>
+
+<script>
+// ── State ──
+let eventSource = null;
+let lineCount = 0;
+let startTime = null;
+let timerInterval = null;
+let passed = 0, failed = 0, skipped = 0;
+
+// ── Step tracker state (vertical tree) ──
+const STEP_DEFS = [
+  { id: 'launch',   icon: '&#9654;',  label: 'Launch' },
+  { id: 'search',   icon: '&#128269;', label: 'Search' },
+  { id: 'filter',   icon: '&#128737;', label: 'Filter' },
+  { id: 'price',    icon: '&#128176;', label: 'Price' },
+  { id: 'collect',  icon: '&#128230;', label: 'Collect' },
+  { id: 'cart',     icon: '&#128722;', label: 'Add to Cart' },
+  { id: 'validate', icon: '&#9989;',  label: 'Validate' },
+];
+let currentStepIdx = -1;
+let stepStates = {};
+let stepChildren = {};   // id → [{text, state}]
+let expandedSteps = {};  // id → bool
+
+// ── Panel collapse / resize ──
+function togglePanel(which) {
+  const c = document.getElementById('mainContainer');
+  const cls = which === 'config' ? 'hide-config' : 'hide-flow';
+  const reopenId = which === 'config' ? 'reopenConfig' : 'reopenFlow';
+  c.classList.toggle(cls);
+  document.getElementById(reopenId).classList.toggle('visible', c.classList.contains(cls));
+  savePanelPrefs();
+}
+
+function savePanelPrefs() {
+  const c = document.getElementById('mainContainer');
+  localStorage.setItem('panel_prefs', JSON.stringify({
+    hideConfig: c.classList.contains('hide-config'),
+    hideFlow: c.classList.contains('hide-flow'),
+    colConfig: c.style.getPropertyValue('--col-config') || '',
+    colFlow: c.style.getPropertyValue('--col-flow') || '',
+  }));
+}
+
+function restorePanelPrefs() {
+  try {
+    const raw = localStorage.getItem('panel_prefs');
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    const c = document.getElementById('mainContainer');
+    if (p.hideConfig) {
+      c.classList.add('hide-config');
+      document.getElementById('reopenConfig').classList.add('visible');
+    }
+    if (p.hideFlow) {
+      c.classList.add('hide-flow');
+      document.getElementById('reopenFlow').classList.add('visible');
+    }
+    if (p.colConfig) c.style.setProperty('--col-config', p.colConfig);
+    if (p.colFlow)   c.style.setProperty('--col-flow', p.colFlow);
+  } catch {}
+}
+
+function initPanelResize() {
+  makeResizable(document.getElementById('configPanel'), '--col-config', 160, 500);
+  makeResizable(document.getElementById('stepPanel'),   '--col-flow',   160, 500);
+}
+
+function makeResizable(panel, cssVar, minW, maxW) {
+  if (!panel) return;
+  const handle = document.createElement('div');
+  handle.className = 'panel-resize-handle';
+  panel.style.position = 'relative';
+  panel.appendChild(handle);
+
+  let startX, startW;
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = panel.getBoundingClientRect().width;
+    handle.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (ev) => {
+      const diff = ev.clientX - startX;
+      const newW = Math.min(maxW, Math.max(minW, startW + diff));
+      document.getElementById('mainContainer').style.setProperty(cssVar, newW + 'px');
+    };
+    const onUp = () => {
+      handle.classList.remove('active');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      savePanelPrefs();
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  restorePanelPrefs();
+  initPanelResize();
+  loadConfig();
+  refreshScreenshots();
+  loadRuns();
+  loadReports();
+});
+
+async function loadConfig() {
+  const res = await fetch('/api/config');
+  const data = await res.json();
+  _cachedConfig = data;
+
+  const sel = document.getElementById('browserSelect');
+  sel.innerHTML = '';
+  const labels = {chromium: 'Chromium', firefox: 'Firefox', msedge: 'Microsoft Edge', chrome: 'Google Chrome', webkit: 'WebKit'};
+  data.browsers.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = labels[b] || b;
+    sel.appendChild(opt);
+  });
+
+  const list = document.getElementById('scenarioList');
+  list.innerHTML = '';
+
+  // "Select All" shortcut
+  const allItem = document.createElement('label');
+  allItem.className = 'scenario-item';
+  allItem.innerHTML = `
+    <input type="checkbox" id="selectAll" checked onchange="toggleAllScenarios(this.checked)">
+    <div class="scenario-info">
+      <div class="scenario-id">select_all</div>
+      <div class="scenario-desc">Run all tests and scenarios</div>
+    </div>`;
+  list.appendChild(allItem);
+
+  // Test files (dynamically discovered)
+  if (data.tests && data.tests.length) {
+    const testHeader = document.createElement('div');
+    testHeader.style.cssText = 'font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);padding:8px 4px 4px;margin-top:4px;border-top:1px solid var(--border);';
+    testHeader.textContent = 'Test Files';
+    list.appendChild(testHeader);
+
+    data.tests.forEach(t => {
+      const item = document.createElement('label');
+      item.className = 'scenario-item';
+      const fnList = t.functions.length ? t.functions.join(', ') : 'no test functions';
+      item.innerHTML = `
+        <input type="checkbox" class="scenario-cb test-file-cb" value="${t.k_expr}" checked>
+        <div class="scenario-info">
+          <div class="scenario-id">${t.label}</div>
+          <div class="scenario-desc">${t.file} &middot; ${t.functions.length} test(s): ${fnList}</div>
+        </div>`;
+      list.appendChild(item);
+    });
+  }
+
+  // Data-driven scenarios
+  if (data.scenarios && data.scenarios.length) {
+    const scenHeader = document.createElement('div');
+    scenHeader.style.cssText = 'font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);padding:8px 4px 4px;margin-top:4px;border-top:1px solid var(--border);';
+    scenHeader.textContent = 'Data Scenarios (search_data.json)';
+    list.appendChild(scenHeader);
+
+    data.scenarios.forEach(s => {
+      const item = document.createElement('label');
+      item.className = 'scenario-item';
+      item.innerHTML = `
+        <input type="checkbox" class="scenario-cb data-scenario-cb" value="${s.id}" checked>
+        <div class="scenario-info">
+          <div class="scenario-id">${s.id}</div>
+          <div class="scenario-desc">${s.description}</div>
+        </div>`;
+      list.appendChild(item);
+    });
+  }
+}
+
+function toggleAllScenarios(checked) {
+  document.querySelectorAll('.scenario-cb').forEach(cb => cb.checked = checked);
+}
+
+// ── Run tests ──
+async function startRun() {
+  const browser = document.getElementById('browserSelect').value;
+  const headed = document.getElementById('headedToggle').checked;
+  const workers = parseInt(document.getElementById('workersInput').value) || 1;
+  const testFilters = [...document.querySelectorAll('.test-file-cb:checked')].map(cb => cb.value);
+  const scenarios = [...document.querySelectorAll('.data-scenario-cb:checked')].map(cb => cb.value);
+  const allChecked = document.getElementById('selectAll').checked;
+
+  // Reset UI
+  lineCount = 0;
+  passed = 0; failed = 0; skipped = 0;
+  updateStats();
+  const body = document.getElementById('consoleBody');
+  body.innerHTML = '';
+  resetStepTracker();
+
+  setStatus('running');
+  startScreenshotPolling();
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('stopBtn').style.display = 'block';
+
+  startTime = Date.now();
+  timerInterval = setInterval(updateTimer, 500);
+
+  switchTab('console');
+
+  const res = await fetch('/api/run', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      browser, headed, workers,
+      scenarios: allChecked ? [] : scenarios,
+      test_filters: allChecked ? [] : testFilters,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    appendLine(`[ERROR] ${err.error}`, 'line-fail');
+    setStatus('idle');
+    document.getElementById('runBtn').disabled = false;
+    document.getElementById('stopBtn').style.display = 'none';
+    clearInterval(timerInterval);
+    return;
+  }
+
+  // Open SSE stream
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource('/api/stream');
+
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.type === 'log') {
+      const cls = classifyLine(data.line);
+      appendLine(data.line, cls);
+      parseTestResult(data.line);
+      parseStepFromLog(data.line);
+    }
+
+    if (data.type === 'finished') {
+      eventSource.close();
+      eventSource = null;
+      clearInterval(timerInterval);
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('stopBtn').style.display = 'none';
+
+      const dur = data.duration || ((Date.now() - startTime) / 1000);
+      document.getElementById('statDuration').textContent = formatDuration(dur);
+
+      if (data.exit_code === 0) {
+        setStatus('passed');
+        appendLine(`\n  Tests completed successfully (exit code 0) in ${formatDuration(dur)}`, 'line-pass');
+      } else {
+        setStatus('failed');
+        appendLine(`\n  Tests finished with exit code ${data.exit_code} in ${formatDuration(dur)}`, 'line-fail');
+      }
+
+      stopScreenshotPolling();
+      refreshScreenshots();
+      loadRuns();
+      loadReports();
+    }
+
+    if (data.type === 'error') {
+      appendLine(`[ERROR] ${data.message}`, 'line-fail');
+      setStatus('idle');
+      stopScreenshotPolling();
+      document.getElementById('runBtn').disabled = false;
+      clearInterval(timerInterval);
+    }
+  };
+
+  eventSource.onerror = () => {
+    eventSource.close();
+    eventSource = null;
+    stopScreenshotPolling();
+  };
+}
+
+async function stopRun() {
+  await fetch('/api/stop', {method: 'POST'});
+  appendLine('\n  Test run stopped by user', 'line-warn');
+  stopScreenshotPolling();
+}
+
+// ── Line classification ──
+function classifyLine(line) {
+  if (/\bWARN(ING)?\b|Not found \(optional\)|SKIP/i.test(line)) return 'line-warn';
+  if (/PASSED/i.test(line)) return 'line-pass';
+  if (/FAILED|ERROR/i.test(line)) return 'line-fail';
+  if (/={5,}|─{5,}|test session|collected/i.test(line)) return 'line-section';
+  if (/\[INFO\]/i.test(line)) return 'line-info';
+  return '';
+}
+
+function parseTestResult(line) {
+  if (/PASSED/i.test(line)) { passed++; updateStats(); }
+  if (/FAILED/i.test(line) && !/failures=/.test(line)) { failed++; updateStats(); }
+  if (/SKIPPED/i.test(line)) { skipped++; updateStats(); }
+
+  // Parse pytest summary line: "X passed, Y failed, Z skipped"
+  const summary = line.match(/(\d+) passed/);
+  const summaryF = line.match(/(\d+) failed/);
+  const summaryS = line.match(/(\d+) skipped/);
+  if (summary && /=/.test(line)) {
+    passed = parseInt(summary[1]);
+    if (summaryF) failed = parseInt(summaryF[1]);
+    if (summaryS) skipped = parseInt(summaryS[1]);
+    updateStats();
+  }
+}
+
+function appendLine(text, cls = '') {
+  const body = document.getElementById('consoleBody');
+  const div = document.createElement('div');
+  div.className = `line ${cls}`;
+  div.textContent = text;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+  lineCount++;
+  document.getElementById('consoleLine').textContent = `${lineCount} lines`;
+}
+
+// ── Status ──
+function setStatus(state) {
+  const badge = document.getElementById('statusBadge');
+  const text = document.getElementById('statusText');
+  badge.className = 'status-badge';
+  if (state === 'running') { badge.classList.add('status-running'); text.textContent = 'Running'; }
+  else if (state === 'passed') { badge.classList.add('status-passed'); text.textContent = 'Passed'; }
+  else if (state === 'failed') { badge.classList.add('status-failed'); text.textContent = 'Failed'; }
+  else { badge.classList.add('status-idle'); text.textContent = 'Idle'; }
+}
+
+function updateStats() {
+  document.getElementById('statPassed').textContent = passed;
+  document.getElementById('statFailed').textContent = failed;
+  document.getElementById('statSkipped').textContent = skipped;
+}
+
+function updateTimer() {
+  if (startTime) {
+    const elapsed = (Date.now() - startTime) / 1000;
+    document.getElementById('statDuration').textContent = formatDuration(elapsed);
+  }
+}
+
+function formatDuration(secs) {
+  if (secs < 60) return `${Math.round(secs)}s`;
+  const m = Math.floor(secs / 60);
+  const s = Math.round(secs % 60);
+  return `${m}m ${s}s`;
+}
+
+// ── Tabs ──
+function switchTab(tabName) {
+  const keywords = { console: 'console', screenshots: 'screen', reports: 'report', runs: 'past', scenario: 'scenario' };
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const kw = keywords[tabName] || tabName;
+    btn.classList.toggle('active', btn.textContent.toLowerCase().includes(kw));
+  });
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  document.getElementById(`tab-${tabName}`).classList.add('active');
+
+  if (tabName === 'screenshots') refreshScreenshots();
+  if (tabName === 'reports') loadReports();
+  if (tabName === 'runs') loadRuns();
+  if (tabName === 'scenario') renderScenarioInfo();
+}
+
+let _cachedConfig = null;
+async function renderScenarioInfo() {
+  const container = document.getElementById('scenarioInfoContainer');
+  if (!_cachedConfig) {
+    const res = await fetch('/api/config');
+    _cachedConfig = await res.json();
+  }
+  const data = _cachedConfig;
+  const cards = [];
+
+  if (data.tests) {
+    data.tests.forEach(t => {
+      if (t.name === 'test_smoke') {
+        cards.push(_buildInfoCard('Smoke Test', t.label,
+          'Lightweight sanity check: verify eBay is reachable and the search flow returns at least one result.',
+          ['Open https://www.ebay.com', "Type 'laptop' in the search bar and press Enter", 'Verify the search results page loads with at least one product listing'],
+          "Search results page loads and contains at least 1 item for query 'laptop'."
+        ));
+      }
+    });
+  }
+
+  if (data.scenarios) {
+    data.scenarios.forEach(s => {
+      cards.push(_buildInfoCard(
+        s.id, s.description || s.id,
+        s.description || '',
+        s.manual_steps || [],
+        s.expected_results || ''
+      ));
+    });
+  }
+
+  if (cards.length === 0) {
+    container.innerHTML = '<div class="scenario-info-empty">No scenario information available.</div>';
+  } else {
+    container.innerHTML = cards.join('');
+  }
+}
+
+function _buildInfoCard(id, title, desc, steps, expected) {
+  let html = `<div class="scenario-info-card"><h3>&#128203; ${_esc(title)}</h3>`;
+  if (desc) html += `<div class="desc-text">${_esc(desc)}</div>`;
+  if (steps && steps.length) {
+    html += `<div class="section-label">Steps to Reproduce (Manual)</div><ol>`;
+    steps.forEach(s => html += `<li>${_esc(s)}</li>`);
+    html += `</ol>`;
+  }
+  if (expected) {
+    html += `<div class="section-label">Expected Results</div><div class="expected-box">${_esc(expected)}</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function _esc(s) {
+  const el = document.createElement('span');
+  el.textContent = s;
+  return el.innerHTML;
+}
+
+// ── Screenshots ──
+let screenshotPollInterval = null;
+
+async function refreshScreenshots() {
+  const res = await fetch('/api/screenshots');
+  const files = await res.json();
+  const container = document.getElementById('galleryContainer');
+
+  if (files.length === 0) {
+    container.innerHTML = '<div class="gallery-empty">No screenshots yet. Run a test to capture some.</div>';
+    return;
+  }
+
+  const isRunning = !!(eventSource);
+  let html = '';
+  if (isRunning) {
+    html += '<div class="screenshots-auto-label"><span class="dot"></span> Auto-refreshing while test runs...</div>';
+  }
+  container.innerHTML = html;
+  files.forEach(f => {
+    const card = document.createElement('div');
+    card.className = 'gallery-card';
+    card.onclick = () => openLightbox(f.url + '?t=' + Date.now());
+    card.innerHTML = `<img src="${f.url}?t=${Date.now()}" alt="${f.name}" loading="lazy"><div class="card-name">${f.name}</div>`;
+    container.appendChild(card);
+  });
+}
+
+function startScreenshotPolling() {
+  stopScreenshotPolling();
+  screenshotPollInterval = setInterval(() => {
+    const tab = document.getElementById('tab-screenshots');
+    if (tab && tab.classList.contains('active')) {
+      refreshScreenshots();
+    }
+  }, 3000);
+}
+
+function stopScreenshotPolling() {
+  if (screenshotPollInterval) {
+    clearInterval(screenshotPollInterval);
+    screenshotPollInterval = null;
+  }
+}
+
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+// ── Past runs ──
+async function loadRuns() {
+  const res = await fetch('/api/runs');
+  const runs = await res.json();
+  const container = document.getElementById('runsContainer');
+
+  if (runs.length === 0) {
+    container.innerHTML = '<div class="gallery-empty">No past runs found. Run your first test!</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  runs.forEach(r => {
+    const entry = document.createElement('div');
+    entry.className = 'run-entry';
+    entry.innerHTML = `
+      <div>
+        <div class="run-id">run_${r.id}</div>
+        <div class="run-files">${r.files} result files</div>
+      </div>
+      <button class="btn-allure" onclick="openAllure('${r.id}')">Open Allure Report</button>`;
+    container.appendChild(entry);
+  });
+}
+
+function openAllure(runId) {
+  alert(`To view the Allure report, run in your terminal:\n\nallure serve allure-results/run_${runId}\n\nThis will open an interactive report in your default browser.`);
+}
+
+// ── Reports ──
+async function loadReports() {
+  const res = await fetch('/api/reports');
+  const reports = await res.json();
+  const container = document.getElementById('reportsContainer');
+
+  if (reports.length === 0) {
+    container.innerHTML = '<div class="gallery-empty">No HTML reports generated yet. Run a test scenario to generate one.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  const now = Date.now() / 1000;
+  reports.forEach(r => {
+    const age = now - r.mtime;
+    const isNew = age < 120;
+    const timeStr = new Date(r.mtime * 1000).toLocaleString();
+    const sizeKB = (r.size / 1024).toFixed(0);
+    const nameDisplay = r.name.replace(/_/g, ' ');
+    const badge = isNew ? '<span class="report-badge new">NEW</span>' : '';
+    const statusBadge = r.name.toLowerCase().includes('fail')
+      ? '<span class="report-badge fail">FAIL</span>'
+      : (r.name.toLowerCase().includes('pass') ? '<span class="report-badge pass">PASS</span>' : '');
+
+    const entry = document.createElement('div');
+    entry.className = 'run-entry';
+    entry.innerHTML = `
+      <div style="flex:1;min-width:0;">
+        <div class="run-id">${_esc(nameDisplay)}${badge}${statusBadge}</div>
+        <div class="report-time">${timeStr} &middot; ${sizeKB} KB</div>
+      </div>
+      <a href="${r.url}" target="_blank" class="btn-view-report">View Report</a>`;
+    container.appendChild(entry);
+  });
+}
+
+// ── Browser live-view panel ──
+let liveViewInterval = null;
+let browserPanelVisible = false;
+
+function toggleBrowserPanel() {
+  const panel = document.getElementById('browserPanel');
+  const handle = document.getElementById('resizeHandle');
+  browserPanelVisible = !browserPanelVisible;
+
+  if (browserPanelVisible) {
+    panel.classList.add('visible');
+    handle.style.display = 'flex';
+    startLiveView();
+  } else {
+    panel.classList.remove('visible');
+    handle.style.display = 'none';
+    stopLiveView();
+  }
+}
+
+function startLiveView() {
+  if (liveViewInterval) return;
+  pollLiveView();
+  liveViewInterval = setInterval(pollLiveView, 800);
+}
+
+function stopLiveView() {
+  if (liveViewInterval) {
+    clearInterval(liveViewInterval);
+    liveViewInterval = null;
+  }
+}
+
+async function pollLiveView() {
+  const img = document.getElementById('browserImg');
+  const noFeed = document.getElementById('browserNoFeed');
+  try {
+    const res = await fetch(`/api/live-view?t=${Date.now()}`);
+    if (res.ok && res.status === 200) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => URL.revokeObjectURL(url);
+      img.src = url;
+      img.style.display = 'block';
+      noFeed.style.display = 'none';
+    }
+  } catch (e) {}
+}
+
+// ── Drag-to-resize the browser viewport ──
+(function() {
+  const handle = document.getElementById('resizeHandle');
+  const viewport = document.getElementById('browserViewport');
+  let dragging = false;
+  let startY = 0;
+  let startH = 0;
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    startY = e.clientY;
+    startH = viewport.offsetHeight;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const delta = e.clientY - startY;
+    const newH = Math.max(100, Math.min(startH + delta, window.innerHeight - 250));
+    viewport.style.height = newH + 'px';
+    document.getElementById('browserSizeLabel').textContent = `${viewport.offsetWidth}×${newH}`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// ── Step tracker functions (vertical tree) ──
+
+function resetStepTracker() {
+  currentStepIdx = -1;
+  stepStates = {};
+  stepChildren = {};
+  expandedSteps = {};
+  STEP_DEFS.forEach(s => {
+    stepStates[s.id] = 'pending';
+    stepChildren[s.id] = [];
+    expandedSteps[s.id] = false;
+  });
+  renderTree();
+}
+
+function setScenarioName(name, running) {
+  const badge = document.getElementById('scenarioBadge');
+  const label = document.getElementById('scenarioName');
+  label.textContent = name;
+  badge.className = 'scenario-badge' + (running ? ' running' : ' idle');
+}
+
+function toggleTreeStep(stepId) {
+  expandedSteps[stepId] = !expandedSteps[stepId];
+  renderTree();
+}
+
+function renderTree() {
+  const tree = document.getElementById('stepTree');
+  let html = '';
+  STEP_DEFS.forEach((s, i) => {
+    const state = stepStates[s.id];
+    const isExpanded = expandedSteps[s.id];
+    const children = stepChildren[s.id] || [];
+    const hasChildren = children.length > 0;
+    const expClass = isExpanded ? ' expanded' : '';
+    const statusIcon = state === 'done' ? '&#10004;' : state === 'fail' ? '&#10008;' : state === 'skip' ? '&#8212;' : state === 'active' ? '&#9679;' : '';
+
+    html += `<div class="tree-step ${state}${expClass}" data-step="${s.id}">`;
+    html += `  <div class="tree-step-header" onclick="toggleTreeStep('${s.id}')">`;
+    html += `    <span class="tree-arrow">${hasChildren ? '&#9654;' : '&nbsp;'}</span>`;
+    html += `    <span class="tree-step-icon">${s.icon}</span>`;
+    html += `    <span class="tree-step-label">${s.label}</span>`;
+    html += `    <span class="tree-step-status">${statusIcon}</span>`;
+    html += `  </div>`;
+
+    if (hasChildren) {
+      html += `  <div class="tree-children">`;
+      children.forEach((c) => {
+        html += `<div class="tree-child ${c.state}">`;
+        html += `  <span class="tree-dot"></span>`;
+        html += `  <span class="child-text">${escHtml(c.text)}</span>`;
+        html += `</div>`;
+      });
+      html += `  </div>`;
+    }
+    html += `</div>`;
+  });
+  tree.innerHTML = html;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function addSubAction(stepId, text, state) {
+  if (!stepChildren[stepId]) stepChildren[stepId] = [];
+  // Mark previous active child as done
+  stepChildren[stepId].forEach(c => { if (c.state === 'active') c.state = 'done'; });
+  stepChildren[stepId].push({ text, state: state || 'active' });
+  expandedSteps[stepId] = true;
+  renderTree();
+}
+
+function completeLastChild(stepId) {
+  const ch = stepChildren[stepId];
+  if (ch && ch.length > 0) {
+    ch[ch.length - 1].state = 'done';
+    renderTree();
+  }
+}
+
+function activateStep(stepId) {
+  const idx = STEP_DEFS.findIndex(s => s.id === stepId);
+  if (idx < 0) return;
+  for (let i = 0; i < idx; i++) {
+    const prev = STEP_DEFS[i].id;
+    if (stepStates[prev] === 'active' || stepStates[prev] === 'pending') {
+      stepStates[prev] = 'done';
+    }
+    // Close previous expanded steps, mark all children done
+    stepChildren[prev].forEach(c => { if (c.state === 'active') c.state = 'done'; });
+    expandedSteps[prev] = false;
+  }
+  stepStates[stepId] = 'active';
+  expandedSteps[stepId] = true;
+  currentStepIdx = idx;
+  renderTree();
+}
+
+function completeStep(stepId) {
+  if (stepStates[stepId]) {
+    stepStates[stepId] = 'done';
+    stepChildren[stepId].forEach(c => { if (c.state === 'active') c.state = 'done'; });
+    expandedSteps[stepId] = false;
+    renderTree();
+  }
+}
+
+function failStep(stepId) {
+  if (stepStates[stepId]) {
+    stepStates[stepId] = 'fail';
+    stepChildren[stepId].forEach(c => { if (c.state === 'active') c.state = 'fail'; });
+    renderTree();
+  }
+}
+
+function parseStepFromLog(line) {
+  // ── Launch ──
+  if (/Browser launched/i.test(line)) {
+    activateStep('launch');
+    addSubAction('launch', 'start driver', 'done');
+  }
+  if (/HomePage.*Navigating to/i.test(line)) {
+    activateStep('launch');
+    addSubAction('launch', 'navigate to eBay');
+  }
+  if (/Cookie banner dismissed/i.test(line)) {
+    addSubAction('launch', 'dismiss cookie banner', 'done');
+  }
+  if (/Pressed key: Escape/i.test(line) && stepStates['launch'] === 'active') {
+    addSubAction('launch', 'press Escape (dismiss overlay)');
+  }
+  if (/home page loaded/i.test(line)) {
+    completeLastChild('launch');
+    addSubAction('launch', 'home page ready', 'done');
+    completeStep('launch');
+  }
+
+  // ── Search ──
+  if (/Searching for:/i.test(line)) {
+    const m = line.match(/Searching for: '(.+?)'/);
+    activateStep('search');
+    addSubAction('search', `type "${m ? m[1] : '...'}" in search box`);
+  }
+  if (/search_input.*succeeded/i.test(line)) {
+    completeLastChild('search');
+    addSubAction('search', 'found search input (strategy succeeded)' , 'done');
+  }
+  if (/Typed '.*' into 'search_input'/i.test(line)) {
+    addSubAction('search', 'typing query character by character...', 'done');
+  }
+  if (/Pressed key: Enter/i.test(line) && stepStates['search'] === 'active') {
+    addSubAction('search', 'press Enter to submit');
+  }
+  if (/Search submitted/i.test(line)) {
+    completeLastChild('search');
+    addSubAction('search', 'wait for results to load', 'done');
+    completeStep('search');
+  }
+
+  // ── Filter (Buy It Now) ──
+  if (/buy_it_now_filter.*succeeded/i.test(line)) {
+    activateStep('filter');
+    addSubAction('filter', 'locate "Buy It Now" link');
+  }
+  if (/Clicked 'buy_it_now_filter'/i.test(line)) {
+    completeLastChild('filter');
+    addSubAction('filter', 'click "Buy It Now" filter');
+  }
+  if (/Filtered to Buy It Now/i.test(line)) {
+    completeLastChild('filter');
+    addSubAction('filter', 'wait for filtered results', 'done');
+    completeStep('filter');
+  }
+  if (/Buy It Now filter not found/i.test(line)) {
+    activateStep('filter');
+    addSubAction('filter', 'Buy It Now link not found — skipped', 'done');
+    stepStates['filter'] = 'skip';
+    renderTree();
+  }
+
+  // ── Price filter ──
+  if (/price_filter_min.*succeeded/i.test(line)) {
+    activateStep('price');
+    addSubAction('price', 'locate price min input');
+  }
+  if (/Filled 'price_filter_min'/i.test(line)) {
+    completeLastChild('price');
+    addSubAction('price', 'type $0 in min field', 'done');
+  }
+  if (/Filled 'price_filter_max'/i.test(line)) {
+    addSubAction('price', 'type max price in max field', 'done');
+  }
+  if (/Clicked 'price_filter_submit'/i.test(line)) {
+    addSubAction('price', 'click Submit price range');
+  }
+  if (/Price filter applied/i.test(line)) {
+    completeLastChild('price');
+    addSubAction('price', 'wait for filtered results', 'done');
+    completeStep('price');
+  }
+  if (/Price filter UI not found/i.test(line)) {
+    activateStep('price');
+    addSubAction('price', 'price filter UI not found — skip', 'done');
+    stepStates['price'] = 'skip';
+    renderTree();
+  }
+
+  // ── Collect items ──
+  if (/Scanning page/i.test(line)) {
+    const m = line.match(/page (\d+).*collected (\d+)\/(\d+)/);
+    activateStep('collect');
+    if (m) addSubAction('collect', `scan page ${m[1]} (${m[2]}/${m[3]} so far)`);
+  }
+  if (/Found \d+ item cards/i.test(line)) {
+    const m = line.match(/Found (\d+)/);
+    completeLastChild('collect');
+    addSubAction('collect', `found ${m ? m[1] : '?'} item cards on page`);
+  }
+  if (/Item #\d+: \$/i.test(line)) {
+    const m = line.match(/Item #(\d+): \$([\d.]+)/);
+    if (m) {
+      completeLastChild('collect');
+      addSubAction('collect', `item #${m[1]} → $${m[2]} ✓ qualifies`);
+    }
+  }
+  if (/Navigated to next results page/i.test(line)) {
+    completeLastChild('collect');
+    addSubAction('collect', 'click Next → paginate');
+  }
+  if (/Collected \d+ item/i.test(line)) {
+    const m = line.match(/Collected (\d+)/);
+    completeLastChild('collect');
+    addSubAction('collect', `collected ${m ? m[1] : '?'} items total`, 'done');
+    completeStep('collect');
+  }
+  if (/No items found/i.test(line) || /searchItemsByNameUnderPrice returned 0/i.test(line)) {
+    failStep('collect');
+  }
+
+  // ── Add to cart ──
+  if (/Adding item (\d+)\/(\d+)/i.test(line)) {
+    const m = line.match(/Adding item (\d+)\/(\d+)/);
+    activateStep('cart');
+    addSubAction('cart', `open product ${m[1]}/${m[2]}`);
+  }
+  if (/ProductPage.*Navigating to/i.test(line)) {
+    completeLastChild('cart');
+    addSubAction('cart', 'navigate to product page');
+  }
+  if (/Got text from 'product_title'/i.test(line)) {
+    const m = line.match(/'product_title': '(.{0,45})/);
+    if (m) {
+      completeLastChild('cart');
+      addSubAction('cart', `read title: ${m[1]}…`);
+    }
+  }
+  if (/Selected size/i.test(line)) {
+    const m = line.match(/Selected size: '(.+?)'/);
+    completeLastChild('cart');
+    addSubAction('cart', `select size: ${m ? m[1] : '?'}`, 'done');
+  }
+  if (/Selected a random colour/i.test(line)) {
+    completeLastChild('cart');
+    addSubAction('cart', 'select random colour option', 'done');
+  }
+  if (/No size selector found/i.test(line)) {
+    addSubAction('cart', 'no size selector — skip', 'done');
+  }
+  if (/No colour options found/i.test(line)) {
+    addSubAction('cart', 'no colour options — skip', 'done');
+  }
+  if (/Clicked 'Add to Cart'/i.test(line)) {
+    completeLastChild('cart');
+    addSubAction('cart', 'click "Add to Cart" button');
+  }
+  if (/Cart confirmation.*appeared/i.test(line)) {
+    completeLastChild('cart');
+    addSubAction('cart', 'confirmation overlay appeared ✓', 'done');
+  }
+  if (/Cart confirmation not detected/i.test(line)) {
+    completeLastChild('cart');
+    addSubAction('cart', 'confirmation not detected (may still be added)', 'done');
+  }
+  if (/could NOT be added/i.test(line)) {
+    const m = line.match(/Item (\d+).*: (.{0,40})/);
+    completeLastChild('cart');
+    addSubAction('cart', `item ${m?m[1]:'?'} failed to add: ${m?m[2]:'unknown'}`, 'fail');
+  }
+  if (/Cart overlay closed/i.test(line)) {
+    addSubAction('cart', 'close overlay', 'done');
+  }
+  if (/addItemsToCart.*(\d+)\/(\d+)/i.test(line)) {
+    const m = line.match(/(\d+)\/(\d+) items added/);
+    if (m) {
+      completeLastChild('cart');
+      addSubAction('cart', `${m[1]}/${m[2]} items added to cart`, 'done');
+      completeStep('cart');
+    }
+  }
+
+  // ── Validate cart ──
+  if (/CartPage.*Navigating to/i.test(line) || /Cart page loaded/i.test(line)) {
+    activateStep('validate');
+    if (/Navigating/i.test(line)) addSubAction('validate', 'navigate to cart.ebay.com');
+    if (/loaded/i.test(line)) {
+      completeLastChild('validate');
+      addSubAction('validate', 'cart page loaded', 'done');
+    }
+  }
+  if (/Validating: cart total/i.test(line)) {
+    const m = line.match(/\$([\d.]+)\s*\((\d+)\s*[×x]\s*\$([\d.]+)\)/i);
+    activateStep('validate');
+    if (m) {
+      addSubAction('validate', `budget = $${m[1]} (${m[2]} items × $${m[3]})`, 'done');
+    }
+    addSubAction('validate', 'read cart subtotal');
+  }
+  if (/Cart subtotal: \$/i.test(line)) {
+    const m = line.match(/\$([\d.]+)/);
+    completeLastChild('validate');
+    addSubAction('validate', `actual subtotal = $${m ? m[1] : '?'}`, 'done');
+  }
+  if (/Cart total is within budget/i.test(line)) {
+    completeLastChild('validate');
+    addSubAction('validate', 'assertion PASSED: total ≤ budget ✓', 'done');
+    completeStep('validate');
+  }
+  if (/Cart total.*exceeds/i.test(line)) {
+    const m = line.match(/\$([\d.]+).*exceeds.*\$([\d.]+)/i);
+    completeLastChild('validate');
+    addSubAction('validate', `assertion FAILED: $${m?m[1]:'?'} exceeds budget $${m?m[2]:'?'}`, 'fail');
+    failStep('validate');
+  }
+  if (/Could not read cart subtotal/i.test(line)) {
+    completeLastChild('validate');
+    addSubAction('validate', 'could not read subtotal — cart empty or CAPTCHA', 'done');
+    completeStep('validate');
+  }
+  if (/Skipping assertion/i.test(line)) {
+    completeLastChild('validate');
+    addSubAction('validate', 'validation skipped — subtotal not readable', 'done');
+    completeStep('validate');
+  }
+
+  // ── Test-level outcomes ──
+  if (/PASSED/i.test(line) && /test_ebay|test_smoke/i.test(line)) {
+    STEP_DEFS.forEach(s => {
+      if (stepStates[s.id] === 'active') stepStates[s.id] = 'done';
+      (stepChildren[s.id] || []).forEach(c => { if (c.state === 'active') c.state = 'done'; });
+    });
+    renderTree();
+  }
+  if (/FAILED/i.test(line) && /test_ebay|test_smoke/i.test(line)) {
+    let failedAny = false;
+    STEP_DEFS.forEach(s => {
+      if (stepStates[s.id] === 'active') {
+        if (!failedAny) {
+          stepStates[s.id] = 'fail';
+          const reason = line.match(/FAILED (.+)/i);
+          addSubAction(s.id, reason ? reason[1].trim().substring(0, 80) : 'test failed — see console', 'fail');
+          failedAny = true;
+        } else {
+          stepStates[s.id] = 'skip';
+        }
+        (stepChildren[s.id] || []).forEach(c => { if (c.state === 'active') c.state = 'done'; });
+      }
+      if (!failedAny && stepStates[s.id] === 'pending') stepStates[s.id] = 'skip';
+    });
+    renderTree();
+  }
+  if (/SKIPPED/i.test(line) && /test_ebay|test_smoke/i.test(line)) {
+    STEP_DEFS.forEach(s => {
+      if (stepStates[s.id] === 'active') stepStates[s.id] = 'skip';
+      if (stepStates[s.id] === 'pending') stepStates[s.id] = 'skip';
+    });
+    renderTree();
+  }
+
+  // ── New test scenario starting ──
+  if (/live log call/i.test(line)) {
+    // Extract scenario name from log lines like: "test_ebay_shopping_flow[headphones_under_50]"
+    resetStepTracker();
+    activateStep('launch');
+    addSubAction('launch', 'starting test...', 'active');
+  }
+  // Detect scenario name from test ID
+  const scenarioMatch = line.match(/test_ebay_shopping_flow\[(\w+)\]/i) || line.match(/test_ebay_search_returns_results/i);
+  if (scenarioMatch) {
+    const name = scenarioMatch[1] || 'smoke_test';
+    setScenarioName(name, true);
+  }
+}
+
+// Auto-show browser panel when a run starts, update scenario badge on finish
+const _origSetStatus = setStatus;
+setStatus = function(state) {
+  _origSetStatus(state);
+  if (state === 'running') {
+    if (!browserPanelVisible) toggleBrowserPanel();
+    resetStepTracker();
+    setScenarioName('Starting...', true);
+  }
+  if (state === 'passed' || state === 'failed') {
+    setScenarioName(
+      document.getElementById('scenarioName').textContent + (state === 'passed' ? ' ✓' : ' ✗'),
+      false
+    );
+    setTimeout(() => stopLiveView(), 2000);
+  }
+};
+</script>
+</body>
+</html>

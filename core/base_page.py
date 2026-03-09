@@ -22,6 +22,7 @@ Design Decisions:
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import List, Optional
@@ -32,13 +33,28 @@ from playwright.sync_api import Locator, Page, TimeoutError as PwTimeout
 from core.logger_config import get_logger
 from core.retry_handler import with_retry
 from core.smart_locator import LocatorStrategy, SmartLocator
+from utils.step_collector import collector
 
 SCREENSHOT_DIR = Path(__file__).resolve().parent.parent / "screenshots"
 SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
+LIVE_VIEW_ENABLED = os.environ.get("EBAY_LIVE_VIEW", "").lower() in ("1", "true", "yes")
+LIVE_VIEW_PATH = SCREENSHOT_DIR / "_live_view.png"
+
 
 class SmartLocatorError(Exception):
     """Raised when every locator strategy for an element has been exhausted."""
+
+
+class CaptchaDetectedError(Exception):
+    """Raised when eBay's bot verification / CAPTCHA page is detected.
+
+    This is not a framework bug — it means eBay has flagged the session
+    as potentially automated.  Mitigations:
+    1. Run ``python save_auth_state.py`` to create a logged-in session.
+    2. Enable stealth browser args in config.
+    3. Reduce test speed (increase ``slow_mo``).
+    """
 
 
 class BasePage:
@@ -59,6 +75,16 @@ class BasePage:
         self.page = page
         self.default_timeout = default_timeout
         self.logger = get_logger(self.__class__.__name__)
+
+    @staticmethod
+    def _retry_callback(action_name: str, target_name: str):
+        """Return an ``on_retry`` callback that records the retry as a sub-step."""
+        def _on_retry(attempt: int, exc: Exception) -> None:
+            collector.add_sub_step(
+                "retry", target_name, status="retry",
+                detail=f"{action_name} attempt {attempt} failed: {type(exc).__name__}",
+            )
+        return _on_retry
 
     # ------------------------------------------------------------------
     # Locator resolution
@@ -126,6 +152,7 @@ class BasePage:
         smart_locator: SmartLocator,
         timeout: Optional[int] = None,
         state: str = "visible",
+        optional: bool = False,
     ) -> Locator:
         """Locate an element using the smart-locator fallback chain.
 
@@ -142,6 +169,9 @@ class BasePage:
                            ``self.default_timeout``.
             state:         Playwright element state to wait for
                            (``'visible'``, ``'attached'``, ``'hidden'``).
+            optional:      If ``True``, a miss is expected and harmless.
+                           The sub-step is recorded as ``"warn"`` instead
+                           of ``"fail"``, and no failure screenshot is taken.
 
         Returns:
             The Playwright ``Locator`` from the first successful strategy.
@@ -151,6 +181,7 @@ class BasePage:
         """
         timeout = timeout or self.default_timeout
         last_error: Optional[Exception] = None
+        collector.begin_sub_step()
 
         for idx, strategy in enumerate(smart_locator.strategies, start=1):
             try:
@@ -161,6 +192,10 @@ class BasePage:
                     smart_locator.name,
                     idx,
                     strategy.description or strategy.value,
+                )
+                collector.add_sub_step(
+                    "find_element", smart_locator.name, "pass",
+                    detail=f"Strategy #{idx}: {strategy.description or strategy.value}",
                 )
                 return locator
 
@@ -174,10 +209,23 @@ class BasePage:
                     str(exc)[:120],
                 )
 
-        screenshot_path = self.take_screenshot(f"FAIL_{smart_locator.name}")
+        if optional:
+            self.logger.info(
+                "[%s] Not found (optional) — skipping", smart_locator.name,
+            )
+            collector.add_sub_step(
+                "find_element", smart_locator.name, "warn",
+                detail=f"Not found (optional) — {len(smart_locator.strategies)} strategies tried",
+            )
+        else:
+            screenshot_path = self.take_screenshot(f"FAIL_{smart_locator.name}")
+            collector.add_sub_step(
+                "find_element", smart_locator.name, "fail",
+                detail=f"All {len(smart_locator.strategies)} strategies exhausted",
+            )
         raise SmartLocatorError(
             f"All {len(smart_locator.strategies)} strategies exhausted for "
-            f"'{smart_locator.name}'. Screenshot: {screenshot_path}"
+            f"'{smart_locator.name}'."
         ) from last_error
 
     # ------------------------------------------------------------------
@@ -198,13 +246,18 @@ class BasePage:
             smart_locator: The target element's smart locator.
             timeout:       Per-strategy wait in ms.
         """
-        @with_retry(max_attempts=3, backoff_factor=0.5, exceptions=(Exception,))
+        collector.begin_sub_step()
+
+        @with_retry(max_attempts=3, backoff_factor=0.5, exceptions=(Exception,),
+                    on_retry=self._retry_callback("click", smart_locator.name))
         def _click() -> None:
             element = self.find_element(smart_locator, timeout=timeout)
             element.click()
             self.logger.info("Clicked '%s'", smart_locator.name)
 
         _click()
+        collector.add_sub_step("click", smart_locator.name)
+        self._update_live_view()
 
     def fill(
         self,
@@ -219,13 +272,18 @@ class BasePage:
             text:          Value to type.
             timeout:       Per-strategy wait in ms.
         """
-        @with_retry(max_attempts=3, backoff_factor=0.5, exceptions=(Exception,))
+        collector.begin_sub_step()
+
+        @with_retry(max_attempts=3, backoff_factor=0.5, exceptions=(Exception,),
+                    on_retry=self._retry_callback("fill", smart_locator.name))
         def _fill() -> None:
             element = self.find_element(smart_locator, timeout=timeout)
             element.fill(text)
             self.logger.info("Filled '%s' with '%s'", smart_locator.name, text)
 
         _fill()
+        collector.add_sub_step("fill", smart_locator.name, detail=f"'{text}'")
+        self._update_live_view()
 
     def type_text(
         self,
@@ -244,11 +302,14 @@ class BasePage:
             delay:         Milliseconds between keystrokes.
             timeout:       Per-strategy wait in ms.
         """
+        collector.begin_sub_step()
         element = self.find_element(smart_locator, timeout=timeout)
         element.click()
         element.fill("")
         element.type(text, delay=delay)
         self.logger.info("Typed '%s' into '%s'", text, smart_locator.name)
+        collector.add_sub_step("type_text", smart_locator.name, detail=f"'{text}'")
+        self._update_live_view()
 
     def get_text(
         self,
@@ -264,9 +325,11 @@ class BasePage:
         Returns:
             The trimmed inner text of the element.
         """
+        collector.begin_sub_step()
         element = self.find_element(smart_locator, timeout=timeout)
         text = (element.inner_text() or "").strip()
         self.logger.info("Got text from '%s': '%s'", smart_locator.name, text[:80])
+        collector.add_sub_step("get_text", smart_locator.name, detail=f"→ '{text[:60]}'")
         return text
 
     def get_attribute_value(
@@ -344,14 +407,60 @@ class BasePage:
     def navigate(self, url: str, wait_until: str = "domcontentloaded") -> None:
         """Navigate the page to a URL and wait for it to load.
 
+        After navigation, checks for eBay's bot verification page and
+        raises ``CaptchaDetectedError`` if found.
+
         Args:
             url:        Full URL to navigate to.
             wait_until: Playwright load state — ``'domcontentloaded'``,
                         ``'load'``, or ``'networkidle'``.
+
+        Raises:
+            CaptchaDetectedError: If the page is a CAPTCHA / verification gate.
         """
+        collector.begin_sub_step()
         self.logger.info("Navigating to %s", url)
         self.page.goto(url, wait_until=wait_until)
         self.logger.info("Navigation complete: %s", self.page.url)
+        collector.add_sub_step("navigate", url[:80], detail=f"wait_until={wait_until}")
+        self._check_for_captcha()
+        self._update_live_view()
+
+    def _check_for_captcha(self) -> None:
+        """Detect eBay's bot verification / CAPTCHA page and fail fast.
+
+        Checks for known indicators that eBay has redirected to a
+        verification gate.  Failing fast with a clear error is much
+        better than timing out on missing elements for minutes.
+
+        Raises:
+            CaptchaDetectedError: If verification page is detected.
+        """
+        captcha_signals = [
+            "Please verify yourself",
+            "verify yourself to continue",
+            "blocked",
+        ]
+        try:
+            title = self.page.title().lower()
+            body_text = self.page.locator("body").first.inner_text(timeout=2_000)[:500].lower()
+        except Exception:
+            return
+
+        for signal in captcha_signals:
+            if signal.lower() in title or signal.lower() in body_text:
+                self.take_screenshot("CAPTCHA_detected")
+                self.logger.error(
+                    "CAPTCHA / bot verification page detected! "
+                    "Run 'python save_auth_state.py' to create a "
+                    "valid session."
+                )
+                raise CaptchaDetectedError(
+                    "eBay bot verification page detected. "
+                    "Automated tests cannot solve CAPTCHAs. "
+                    "Run 'python save_auth_state.py' to log in manually "
+                    "and save your session, then re-run the tests."
+                )
 
     def get_current_url(self) -> str:
         """Return the browser's current URL.
@@ -365,6 +474,20 @@ class BasePage:
     # Screenshots & tracing
     # ------------------------------------------------------------------
 
+    def _update_live_view(self) -> None:
+        """Capture a viewport screenshot for the GUI live-view panel.
+
+        Only active when ``EBAY_LIVE_VIEW`` env var is truthy.  Writes to
+        a single file that the Flask GUI polls, keeping it small (viewport
+        only, not full page) for fast transfer.
+        """
+        if not LIVE_VIEW_ENABLED:
+            return
+        try:
+            self.page.screenshot(path=str(LIVE_VIEW_PATH), full_page=False)
+        except Exception:
+            pass
+
     def take_screenshot(self, name: str = "screenshot") -> str:
         """Capture a full-page screenshot and attach it to the Allure report.
 
@@ -374,6 +497,7 @@ class BasePage:
         Returns:
             The absolute path to the saved screenshot file.
         """
+        collector.begin_sub_step()
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         filename = f"{name}_{timestamp}.png"
         filepath = SCREENSHOT_DIR / filename
@@ -386,6 +510,8 @@ class BasePage:
             name=name,
             attachment_type=allure.attachment_type.PNG,
         )
+        collector.add_sub_step("screenshot", name, screenshot_path=str(filepath))
+        self._update_live_view()
         return str(filepath)
 
     # ------------------------------------------------------------------
@@ -399,11 +525,13 @@ class BasePage:
             milliseconds: Time to sleep.
         """
         self.page.wait_for_timeout(milliseconds)
+        collector.add_sub_step("wait", f"{milliseconds}ms")
 
     def scroll_to_bottom(self) -> None:
         """Scroll to the very bottom of the page to trigger lazy-loaded content."""
         self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         self.logger.info("Scrolled to bottom of page")
+        collector.add_sub_step("scroll", "bottom")
 
     def press_key(self, key: str) -> None:
         """Press a keyboard key (e.g. ``'Enter'``, ``'Escape'``).
@@ -411,8 +539,11 @@ class BasePage:
         Args:
             key: The Playwright key identifier.
         """
+        collector.begin_sub_step()
         self.page.keyboard.press(key)
         self.logger.info("Pressed key: %s", key)
+        collector.add_sub_step("press_key", key)
+        self._update_live_view()
 
     def accept_cookies_if_present(self) -> None:
         """Dismiss cookie banners and overlay dialogs that appear on first visit.
@@ -421,12 +552,10 @@ class BasePage:
         Both block interaction with the page.  Pressing Escape first clears
         any modal overlay, then we look for the cookie banner.
         """
-        # Press Escape to dismiss any modal overlay (e.g. "Ship to" dialog)
-        # that blocks clicks.  This is the most reliable cross-locale approach.
         self.page.keyboard.press("Escape")
         self.wait(500)
+        collector.add_sub_step("dismiss_dialogs", "Escape + cookie banner")
 
-        # GDPR cookie banner (EU visitors)
         try:
             gdpr = self.page.locator("#gdpr-banner-accept")
             if gdpr.is_visible():

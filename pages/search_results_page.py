@@ -39,54 +39,60 @@ class SearchResultsPage(BasePage):
     """
 
     # ------------------------------------------------------------------
-    # Smart Locators
+    # Smart Locators — Tiered strategy
     # ------------------------------------------------------------------
 
+    # Tier 2: Auto-generated ID → CSS by aria-label, XPath fallback
     PRICE_MIN_INPUT = SmartLocator(
         name="price_filter_min",
         strategies=[
-            LocatorStrategy("css", "input.textbox__control[aria-label*='Minimum Value']", "price min by aria-label"),
-            LocatorStrategy("xpath", "//input[contains(@aria-label, 'Minimum Value')]", "price min XPath"),
+            LocatorStrategy("css", "input[aria-label*='Minimum Value']", "price min by aria-label"),
+            LocatorStrategy("xpath", "//input[contains(@aria-label, 'Minimum')]", "price min by XPath attr"),
         ],
     )
 
+    # Tier 2: Auto-generated ID → CSS by aria-label, XPath fallback
     PRICE_MAX_INPUT = SmartLocator(
         name="price_filter_max",
         strategies=[
-            LocatorStrategy("css", "input.textbox__control[aria-label*='Maximum Value']", "price max by aria-label"),
-            LocatorStrategy("xpath", "//input[contains(@aria-label, 'Maximum Value')]", "price max XPath"),
+            LocatorStrategy("css", "input[aria-label*='Maximum Value']", "price max by aria-label"),
+            LocatorStrategy("xpath", "//input[contains(@aria-label, 'Maximum')]", "price max by XPath attr"),
         ],
     )
 
+    # Tier 3: No ID → role-based, XPath by aria-label fallback
     PRICE_SUBMIT_BUTTON = SmartLocator(
         name="price_filter_submit",
         strategies=[
             LocatorStrategy("role", "button, name=Submit price range", "price submit by role"),
-            LocatorStrategy("css", "button[aria-label='Submit price range']", "price submit by aria-label"),
+            LocatorStrategy("xpath", "//button[@aria-label='Submit price range']", "price submit by XPath attr"),
         ],
     )
 
+    # Tier 3: No ID → CSS by class + data-attr, XPath fallback
     RESULT_ITEMS = SmartLocator(
         name="search_result_items",
         strategies=[
-            LocatorStrategy("css", "li.s-card[data-viewport]", "result items by li.s-card"),
-            LocatorStrategy("css", "ul.srp-results li[data-viewport]", "result items via srp-results container"),
+            LocatorStrategy("css", "li.s-card[data-viewport]", "result card by class + data-attr"),
+            LocatorStrategy("xpath", "//ul[contains(@class,'srp-results')]//li[@data-viewport]", "result card by XPath"),
         ],
     )
 
+    # Tier 3: No ID → CSS by class, XPath fallback
     NEXT_PAGE_BUTTON = SmartLocator(
         name="next_page_button",
         strategies=[
             LocatorStrategy("css", "a.pagination__next", "next page by class"),
-            LocatorStrategy("xpath", "//a[contains(@class, 'pagination__next')]", "next page XPath"),
+            LocatorStrategy("xpath", "//a[contains(@class, 'pagination__next')]", "next page by XPath class"),
         ],
     )
 
+    # Tier 3: No ID → CSS by class + href, XPath by href + text fallback
     BUY_IT_NOW_FILTER = SmartLocator(
         name="buy_it_now_filter",
         strategies=[
-            LocatorStrategy("css", "a.x-refine__single-select-link[href*='LH_BIN']", "Buy It Now refine link"),
-            LocatorStrategy("xpath", "//a[contains(@href, 'LH_BIN') and contains(text(), 'Buy It Now')]", "Buy It Now XPath"),
+            LocatorStrategy("css", "a[href*='LH_BIN'].x-refine__single-select-link", "Buy It Now by class + href"),
+            LocatorStrategy("xpath", "//a[contains(@href,'LH_BIN') and contains(.,'Buy It Now')]", "Buy It Now by XPath href + text"),
         ],
     )
 

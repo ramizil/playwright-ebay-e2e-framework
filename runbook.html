@@ -332,6 +332,7 @@
     <a href="#folder-config">config/</a>
     <a href="#folder-core">core/</a>
     <a href="#folder-pages">pages/</a>
+    <a href="#folder-business-steps">business_steps/</a>
     <a href="#folder-tests">tests/</a>
     <a href="#folder-utils">utils/</a>
     <a href="#folder-data">data/</a>
@@ -413,7 +414,8 @@
     <div class="layer layer-tests">
         <div class="layer-label">Tests</div>
         <div class="layer-items">
-            <span class="tag tag-green">test_e2e_shopping.py</span>
+            <span class="tag tag-green">test_shopping_flow.py</span>
+            <span class="tag tag-green">test_smoke.py</span>
             <span class="tag tag-green">conftest.py (fixtures)</span>
         </div>
     </div>
@@ -522,16 +524,18 @@
     </div>
     <span class="folder">📁 pages/</span> <span class="desc">— Page Object Model classes</span>
     <div class="tree-indent">
-        <span class="file">__init__.py</span> <span class="desc">— exports all 4 page classes</span><br>
+        <span class="file">__init__.py</span> <span class="desc">— exports all page classes</span><br>
+        <span class="file">login_page.py</span> <span class="desc">— sign-in: username, password, submit</span><br>
         <span class="file">home_page.py</span> <span class="desc">— eBay home: search bar</span><br>
         <span class="file">search_results_page.py</span> <span class="desc">— results: filters, pagination, item scraping</span><br>
-        <span class="file">product_page.py</span> <span class="desc">— single product: variants, add to cart</span><br>
+        <span class="file">product_page.py</span> <span class="desc">— single product: variants (size, colour, quantity), add to cart</span><br>
         <span class="file">cart_page.py</span> <span class="desc">— shopping cart: subtotal, validation</span>
     </div>
     <span class="folder">📁 tests/</span> <span class="desc">— test files + browser fixtures</span>
     <div class="tree-indent">
         <span class="file">conftest.py</span> <span class="desc">— browser, context, page fixtures</span><br>
-        <span class="file">test_e2e_shopping.py</span> <span class="desc">— E2E shopping + smoke test</span>
+        <span class="file">test_shopping_flow.py</span> <span class="desc">— data-driven parametrised E2E shopping test</span><br>
+        <span class="file">test_smoke.py</span> <span class="desc">— lightweight search-only smoke test</span>
     </div>
     <span class="folder">📁 utils/</span> <span class="desc">— helper functions</span>
     <div class="tree-indent">
@@ -630,7 +634,8 @@ resolve_browser_profile("firefox")
 <h3 id="smart-locator">smart_locator.py — The Resilient Element Finder</h3>
 
 <div class="callout">
-    <p><strong>The big idea:</strong> Instead of relying on one CSS selector that might break when eBay redesigns their site, we define <strong>multiple ways</strong> to find each element. If the first way fails, we try the second, then the third, and so on.</p>
+    <p><strong>The big idea:</strong> Instead of relying on one CSS selector that might break when eBay redesigns their site, we define <strong>multiple ways</strong> to find each element. If the first way fails, we try the second, then the third, and so on.
+    We use a <strong>tiered approach</strong>: Strategy #1 is chosen based on what kind of identifier the element has (stable ID, auto-generated ID, or none), and Strategy #2 is always a <strong>relative XPath</strong>.</p>
 </div>
 
 <details>
@@ -650,11 +655,12 @@ resolve_browser_profile("firefox")
 <summary><span class="tag tag-orange">class</span> SmartLocator (dataclass)</summary>
 <div class="details-body">
     <p>A <strong>group of strategies</strong> for one UI element. Requires at least 2 strategies (so there's always a fallback).</p>
-    <pre><code>SEARCH_INPUT = SmartLocator(
+    <pre><code># Tier 1 — Stable ID first, relative XPath fallback
+SEARCH_INPUT = SmartLocator(
     name="search_input",
     strategies=[
-        LocatorStrategy("css", "input.gh-tb[type='text']", "by class"),
-        LocatorStrategy("xpath", "//input[@name='_nkw']", "by name attr"),
+        LocatorStrategy("css", "#gh-ac", "by stable ID"),
+        LocatorStrategy("xpath", "//input[@name='_nkw' and @type='text']", "by XPath attr"),
     ],
 )</code></pre>
     <p>Properties:</p>
@@ -662,6 +668,30 @@ resolve_browser_profile("firefox")
         <li><code>.primary</code> → first strategy (the one we expect to work)</li>
         <li><code>.fallbacks</code> → all strategies except the first</li>
     </ul>
+
+    <h4 style="margin-top:1rem;">Tiered Strategy — Choosing What Goes in Strategy #1</h4>
+    <table>
+        <tr><th>Element Has&hellip;</th><th>Strategy #1 (Primary)</th><th>Strategy #2 (Fallback)</th><th>Examples</th></tr>
+        <tr>
+            <td><strong style="color:#50fa7b;">Stable ID</strong><br><small>Human-authored, long-lived</small></td>
+            <td><code>css</code> by <code>#id</code></td>
+            <td>Relative XPath by attribute</td>
+            <td><code>#gh-ac</code>, <code>#gh-btn</code>, <code>#atcBtn_btn_1</code>, <code>#qtyTextBox</code></td>
+        </tr>
+        <tr>
+            <td><strong style="color:#8be9fd;">Auto-generated ID</strong><br><small>Dynamic, changes across builds</small></td>
+            <td><code>css</code> by <code>aria-label</code>, class, or <code>data-testid</code></td>
+            <td>Relative XPath by attribute</td>
+            <td><code>input[aria-label*='Minimum Value']</code>, <code>[data-test-id='SUBTOTAL']</code></td>
+        </tr>
+        <tr>
+            <td><strong style="color:#ffb86c;">No ID at all</strong><br><small>Only class names or text</small></td>
+            <td><code>role</code> or <code>css</code> by attribute</td>
+            <td>Relative XPath</td>
+            <td><code>role: button, name=Submit</code>, <code>a.pagination__next</code></td>
+        </tr>
+    </table>
+    <p><strong>Key rule:</strong> Never use an auto-generated ID (like <code>s0-28-9-0-1[3]-x-btn</code>) as Strategy #1 — it will break on the next deploy. Use <code>aria-label</code> or <code>data-testid</code> instead.</p>
 </div>
 </details>
 
@@ -781,9 +811,9 @@ def _click_add_to_cart(self):
 <p><strong>File:</strong> <code>pages/home_page.py</code> &nbsp; <strong>Inherits:</strong> <code>BasePage</code></p>
 
 <table>
-    <tr><th>SmartLocator</th><th>Finds</th><th>Strategies</th></tr>
-    <tr><td><code>SEARCH_INPUT</code></td><td>The search bar</td><td>CSS class <code>gh-tb</code> → XPath by <code>name="_nkw"</code></td></tr>
-    <tr><td><code>SEARCH_BUTTON</code></td><td>The 🔍 Search button</td><td>CSS <code>#gh-btn</code> → XPath by <code>value="Search"</code></td></tr>
+    <tr><th>SmartLocator</th><th>Tier</th><th>Finds</th><th>Strategy #1</th><th>Strategy #2</th></tr>
+    <tr><td><code>SEARCH_INPUT</code></td><td style="color:#50fa7b;">Stable ID</td><td>The search bar</td><td>CSS <code>#gh-ac</code></td><td>XPath <code>//input[@name='_nkw']</code></td></tr>
+    <tr><td><code>SEARCH_BUTTON</code></td><td style="color:#50fa7b;">Stable ID</td><td>The Search button</td><td>CSS <code>#gh-btn</code></td><td>XPath <code>//input[@value='Search']</code></td></tr>
 </table>
 
 <details>
@@ -803,13 +833,13 @@ def _click_add_to_cart(self):
 <p>This is the <strong>most complex page object</strong>. It handles price filtering, Buy It Now filtering, item scraping, price parsing, and pagination.</p>
 
 <table>
-    <tr><th>SmartLocator</th><th>Finds</th><th>Strategies</th></tr>
-    <tr><td><code>PRICE_MIN_INPUT</code></td><td>Price "from" input</td><td>CSS by <code>aria-label*='Minimum Value'</code> → XPath</td></tr>
-    <tr><td><code>PRICE_MAX_INPUT</code></td><td>Price "to" input</td><td>CSS by <code>aria-label*='Maximum Value'</code> → XPath</td></tr>
-    <tr><td><code>PRICE_SUBMIT_BUTTON</code></td><td>Submit price range</td><td>Role <code>button[name=Submit price range]</code> → CSS</td></tr>
-    <tr><td><code>RESULT_ITEMS</code></td><td>All product cards</td><td>CSS <code>li.s-card[data-viewport]</code> → <code>ul.srp-results li</code></td></tr>
-    <tr><td><code>NEXT_PAGE_BUTTON</code></td><td>Pagination "Next"</td><td>CSS <code>a.pagination__next</code> → XPath</td></tr>
-    <tr><td><code>BUY_IT_NOW_FILTER</code></td><td>"Buy It Now" tab</td><td>CSS <code>a[href*='LH_BIN']</code> → XPath with text match</td></tr>
+    <tr><th>SmartLocator</th><th>Tier</th><th>Finds</th><th>Strategy #1</th><th>Strategy #2</th></tr>
+    <tr><td><code>PRICE_MIN_INPUT</code></td><td style="color:#8be9fd;">Auto ID</td><td>Price "from" input</td><td>CSS <code>input[aria-label*='Minimum Value']</code></td><td>XPath by <code>@aria-label</code></td></tr>
+    <tr><td><code>PRICE_MAX_INPUT</code></td><td style="color:#8be9fd;">Auto ID</td><td>Price "to" input</td><td>CSS <code>input[aria-label*='Maximum Value']</code></td><td>XPath by <code>@aria-label</code></td></tr>
+    <tr><td><code>PRICE_SUBMIT_BUTTON</code></td><td style="color:#ffb86c;">No ID</td><td>Submit price range</td><td>Role <code>button, name=Submit price range</code></td><td>XPath by <code>@aria-label</code></td></tr>
+    <tr><td><code>RESULT_ITEMS</code></td><td style="color:#ffb86c;">No ID</td><td>All product cards</td><td>CSS <code>li.s-card[data-viewport]</code></td><td>XPath <code>//ul[…srp-results…]//li</code></td></tr>
+    <tr><td><code>NEXT_PAGE_BUTTON</code></td><td style="color:#ffb86c;">No ID</td><td>Pagination "Next"</td><td>CSS <code>a.pagination__next</code></td><td>XPath by <code>@class</code></td></tr>
+    <tr><td><code>BUY_IT_NOW_FILTER</code></td><td style="color:#ffb86c;">No ID</td><td>"Buy It Now" tab</td><td>CSS <code>a[href*='LH_BIN']</code></td><td>XPath by <code>@href</code> + text</td></tr>
 </table>
 
 <details>
@@ -840,14 +870,14 @@ def _click_add_to_cart(self):
 <p><strong>File:</strong> <code>pages/product_page.py</code> &nbsp; <strong>Inherits:</strong> <code>BasePage</code></p>
 
 <table>
-    <tr><th>SmartLocator</th><th>Finds</th><th>Strategies</th></tr>
-    <tr><td><code>PRODUCT_TITLE</code></td><td>The product name heading</td><td>CSS <code>h1.x-item-title__mainTitle span</code> → XPath</td></tr>
-    <tr><td><code>PRODUCT_PRICE</code></td><td>The price display</td><td>CSS <code>div.x-price-primary span</code> (two variants)</td></tr>
-    <tr><td><code>ADD_TO_CART_BUTTON</code></td><td>"Add to cart" button</td><td>CSS by data-testid → XPath by ID → legacy CSS → text match (4 strategies!)</td></tr>
-    <tr><td><code>QUANTITY_INPUT</code></td><td>Qty input box</td><td>CSS <code>#qtyTextBox</code> → XPath by name</td></tr>
-    <tr><td><code>SIZE_DROPDOWN</code></td><td>Size selector</td><td>CSS <code>#msku-sel-1</code> → XPath</td></tr>
-    <tr><td><code>COLOR_BUTTONS</code></td><td>Colour option buttons</td><td>CSS <code>ul.x-msku</code> buttons → XPath</td></tr>
-    <tr><td><code>CART_CONFIRMATION</code></td><td>"Added to cart" text</td><td>CSS <code>:has-text('Added to cart')</code> → XPath</td></tr>
+    <tr><th>SmartLocator</th><th>Tier</th><th>Finds</th><th>Strategy #1</th><th>Strategy #2</th></tr>
+    <tr><td><code>PRODUCT_TITLE</code></td><td style="color:#ffb86c;">No ID</td><td>Product name heading</td><td>CSS <code>h1.x-item-title__mainTitle span</code></td><td>XPath by <code>@class</code></td></tr>
+    <tr><td><code>PRODUCT_PRICE</code></td><td style="color:#8be9fd;">Auto ID</td><td>The price display</td><td>CSS <code>div.x-price-primary span</code></td><td>XPath by <code>@class</code></td></tr>
+    <tr><td><code>ADD_TO_CART_BUTTON</code></td><td style="color:#50fa7b;">Stable ID</td><td>"Add to cart" button</td><td>CSS <code>#atcBtn_btn_1</code></td><td>XPath by <code>@data-testid</code> + text</td></tr>
+    <tr><td><code>QUANTITY_INPUT</code></td><td style="color:#50fa7b;">Stable ID</td><td>Qty input box</td><td>CSS <code>#qtyTextBox</code></td><td>XPath by <code>@name</code></td></tr>
+    <tr><td><code>SIZE_DROPDOWN</code></td><td style="color:#50fa7b;">Stable ID</td><td>Size selector</td><td>CSS <code>#msku-sel-1</code></td><td>XPath by partial <code>@id</code></td></tr>
+    <tr><td><code>COLOR_BUTTONS</code></td><td style="color:#ffb86c;">No ID</td><td>Colour option buttons</td><td>CSS <code>ul.x-msku…li button</code></td><td>XPath by <code>@class</code></td></tr>
+    <tr><td><code>CART_CONFIRMATION</code></td><td style="color:#ffb86c;">No ID</td><td>"Added to cart" text</td><td>CSS <code>:has-text('Added to cart')</code></td><td>XPath by text content</td></tr>
 </table>
 
 <details>
@@ -881,10 +911,10 @@ def _click_add_to_cart(self):
 <p><strong>File:</strong> <code>pages/cart_page.py</code> &nbsp; <strong>Inherits:</strong> <code>BasePage</code></p>
 
 <table>
-    <tr><th>SmartLocator</th><th>Finds</th><th>Strategies</th></tr>
-    <tr><td><code>CART_SUBTOTAL</code></td><td>Subtotal amount</td><td>CSS by <code>data-test-id='SUBTOTAL'</code> → XPath → fallback class</td></tr>
-    <tr><td><code>CART_TOTAL_PRICE</code></td><td>Total amount</td><td>CSS by <code>data-test-id='TOTAL'</code> → XPath</td></tr>
-    <tr><td><code>EMPTY_CART_MESSAGE</code></td><td>"no items" message</td><td>CSS <code>:has-text('no items')</code> → XPath</td></tr>
+    <tr><th>SmartLocator</th><th>Tier</th><th>Finds</th><th>Strategy #1</th><th>Strategy #2</th></tr>
+    <tr><td><code>CART_SUBTOTAL</code></td><td style="color:#8be9fd;">Auto ID</td><td>Subtotal amount</td><td>CSS <code>[data-test-id='SUBTOTAL']</code></td><td>XPath by <code>@data-test-id</code></td></tr>
+    <tr><td><code>CART_TOTAL_PRICE</code></td><td style="color:#8be9fd;">Auto ID</td><td>Total amount</td><td>CSS <code>[data-test-id='TOTAL']</code></td><td>XPath by <code>@data-test-id</code></td></tr>
+    <tr><td><code>EMPTY_CART_MESSAGE</code></td><td style="color:#ffb86c;">No ID</td><td>"no items" message</td><td>CSS <code>:has-text('no items')</code></td><td>XPath by text content</td></tr>
 </table>
 
 <details>
@@ -903,6 +933,27 @@ def _click_add_to_cart(self):
     <div class="fn-desc">Returns <code>True</code> if the "no items" message is visible.</div>
 </div>
 </details>
+
+
+<!-- ======== BUSINESS STEPS ======== -->
+<h2 id="folder-business-steps">📁 business_steps/ — Reusable Business Actions</h2>
+<p>This package sits between the page objects and the test scenarios.  It contains the <strong>four central functions</strong> from the task specification — each orchestrating one or more page objects into a complete user flow.</p>
+
+<div class="callout">
+    <p><strong>Why separate from tests?</strong> Tests stay declarative ("search, add, validate") while all the orchestration details (page instantiation, step collection, screenshot capture) live here. New test scenarios simply import and compose these building blocks.</p>
+</div>
+
+<table>
+    <tr><th>File</th><th>Function</th><th>Spec Requirement</th></tr>
+    <tr><td><code>login_actions.py</code></td><td><code>login()</code></td><td>§ 3.0 — Identification (Login)</td></tr>
+    <tr><td><code>search_actions.py</code></td><td><code>search_items_by_name_under_price()</code></td><td>§ 3.1 — Search with Price Condition</td></tr>
+    <tr><td rowspan="2"><code>cart_actions.py</code></td><td><code>add_items_to_cart()</code></td><td>§ 3.2 — Add Items to Cart</td></tr>
+    <tr><td><code>assert_cart_total_not_exceeds()</code></td><td>§ 3.3 — Validate Cart Total</td></tr>
+</table>
+
+<div class="callout">
+    <p><strong>Login is optional.</strong> Set <code>EBAY_USERNAME</code> and <code>EBAY_PASSWORD</code> environment variables (or fill <code>config.yaml → credentials</code>). When credentials are missing, the login step is automatically <em>skipped</em> — the rest of the flow runs without authentication.</p>
+</div>
 
 
 <!-- ======== TESTS ======== -->
@@ -932,7 +983,7 @@ def _click_add_to_cart(self):
 <div class="details-body"><p>Runs <strong>after every test</strong>. If the test failed, it captures a screenshot and saves the Playwright trace file. These are attached to the Allure report as evidence.</p></div>
 </details>
 
-<h3 id="test-e2e">test_e2e_shopping.py — The Main E2E Test</h3>
+<h3 id="test-e2e">test_shopping_flow.py &amp; test_smoke.py — Test Scenarios</h3>
 
 <p>This file contains the <strong>business logic functions</strong> (matching the task spec) and the <strong>parametrised test</strong>.</p>
 
@@ -1177,7 +1228,7 @@ CMD ["pytest", "tests/", "-v", "--alluredir=allure-results"]</code></pre>
 <ol>
     <li>Create <code>pages/my_page.py</code></li>
     <li>Import <code>BasePage</code>, <code>SmartLocator</code>, <code>LocatorStrategy</code></li>
-    <li>Define your SmartLocators (≥ 2 strategies each)</li>
+    <li>Define SmartLocators using the <strong>tiered strategy</strong>: stable ID → CSS <code>#id</code>; auto ID → CSS by <code>aria-label</code>/<code>data-testid</code>; no ID → role/class. Always add a relative XPath fallback.</li>
     <li>Write methods that call <code>self.click()</code>, <code>self.fill()</code>, <code>self.get_text()</code>, etc.</li>
     <li>Export from <code>pages/__init__.py</code></li>
 </ol>
@@ -1186,11 +1237,21 @@ CMD ["pytest", "tests/", "-v", "--alluredir=allure-results"]</code></pre>
 from core.smart_locator import LocatorStrategy, SmartLocator
 
 class MyPage(BasePage):
+    # Tier 1: Stable ID → CSS #id + relative XPath fallback
     MY_BUTTON = SmartLocator(
         name="my_button",
         strategies=[
-            LocatorStrategy("css", "#my-btn", "button by ID"),
-            LocatorStrategy("role", "button, name=My Button", "button by role"),
+            LocatorStrategy("css", "#my-btn", "button by stable ID"),
+            LocatorStrategy("xpath", "//button[@aria-label='My Button']", "button by XPath attr"),
+        ],
+    )
+
+    # Tier 3: No ID → role-based + relative XPath fallback
+    SUBMIT_BTN = SmartLocator(
+        name="submit_button",
+        strategies=[
+            LocatorStrategy("role", "button, name=Submit", "submit by role"),
+            LocatorStrategy("xpath", "//button[@type='submit']", "submit by XPath attr"),
         ],
     )
 
@@ -1210,7 +1271,7 @@ class MyPage(BasePage):
    → write_allure_environment()  # create environment.properties
 
 3. pytest discovers tests/conftest.py → registers fixtures
-4. pytest discovers test_e2e_shopping.py → parametrizes scenarios from JSON
+4. pytest discovers test_shopping_flow.py + test_smoke.py → parametrizes scenarios from JSON
 
 5. For each test case (e.g., headphones_under_50):
    a. Fixture chain fires:
