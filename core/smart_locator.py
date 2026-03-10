@@ -2,8 +2,8 @@
 Smart Locator Module
 ====================
 
-Provides a resilient element location strategy by defining multiple locator
-approaches for each UI element. When the primary locator fails (due to DOM
+Defines multiple locator strategies per UI element — when the primary fails
+(due to DOM
 changes, A/B tests, or layout shifts), the framework automatically falls
 back to alternative locators — keeping tests stable without manual fixes.
 
@@ -48,8 +48,7 @@ class SmartLocator:
     """Groups two or more locator strategies for a single UI element.
 
     The framework tries strategies in order: primary first, then each fallback.
-    This satisfies the requirement of "at least two alternative locators for
-    every element" while keeping test code free of retry/fallback logic.
+At least two strategies per element keep test code free of fallback logic.
 
     Attributes:
         name:       A descriptive element name used in logs and screenshots
@@ -58,9 +57,9 @@ class SmartLocator:
                     is the primary; the rest are fallbacks.
 
     Raises:
-        ValueError: If fewer than two strategies are provided (task requirement).
+        ValueError: If fewer than two strategies are provided.
 
-    Example::
+    Example:
 
         search_input = SmartLocator(
             name="search_input",
@@ -75,7 +74,7 @@ class SmartLocator:
     strategies: List[LocatorStrategy] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        """Enforce the minimum-two-strategies rule from the task spec."""
+        """Require at least two strategies."""
         if len(self.strategies) < 2:
             raise ValueError(
                 f"SmartLocator '{self.name}' requires at least 2 strategies, "

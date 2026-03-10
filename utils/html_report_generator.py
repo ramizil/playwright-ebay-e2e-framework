@@ -4,7 +4,7 @@ HTML Report Generator
 
 Generates self-contained, single-file HTML test execution reports that
 embed screenshots as base64.  Reports use a vertical collapsible tree
-layout with a futuristic glassmorphism design.
+layout with a futuristic glass-panel design.
 
 Usage::
 
@@ -739,7 +739,7 @@ def _build_scenario_html(rec: ScenarioRecord, prefix: str = "s0") -> str:
 
 def generate_scenario_report(
     record: ScenarioRecord,
-    output_dir: Optional[str] = None,
+    output_dir: Optional[str | Path] = None,
 ) -> str:
     """Generate a single-scenario HTML report file."""
     out = Path(output_dir) if output_dir else REPORTS_DIR
@@ -846,7 +846,7 @@ def generate_scenario_report(
 
 def generate_run_summary(
     records: List[ScenarioRecord],
-    output_dir: Optional[str] = None,
+    output_dir: Optional[str | Path] = None,
     run_id: str = "",
 ) -> str:
     """Generate a summary HTML report for all scenarios in a test run."""

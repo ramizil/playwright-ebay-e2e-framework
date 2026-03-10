@@ -1,6 +1,6 @@
 # eBay E2E Automation Framework
 
-A production-grade end-to-end test automation framework for eBay built with **Python 3.12**, **Playwright**, and **pytest**.  Demonstrates clean architecture (POM + OOP), smart locator strategies, data-driven testing, parallel execution, and CI/CD integration.
+End-to-end test automation for eBay, built with **Python 3.12**, **Playwright**, and **pytest**. Uses POM + OOP, smart locator strategies, data-driven testing, parallel execution, and CI/CD.
 
 ---
 
@@ -35,7 +35,7 @@ A production-grade end-to-end test automation framework for eBay built with **Py
 │                      PAGE OBJECTS                           │
 │  pages/home_page.py          │  pages/cart_page.py          │
 │  pages/search_results_page.py│  pages/product_page.py       │
-│  - Each page encapsulates its UI interactions               │
+│  - Each page owns its UI interactions                        │
 │  - SmartLocator instances for every element (≥ 2 strategies)│
 ├─────────────────────────────────────────────────────────────┤
 │                       CORE LAYER                            │
@@ -61,11 +61,11 @@ A production-grade end-to-end test automation framework for eBay built with **Py
 | Principle | Implementation |
 |-----------|---------------|
 | **POM (Page Object Model)** | Each page has its own class inheriting from `BasePage`. Tests never touch raw selectors. |
-| **OOP** | Inheritance (`BasePage` → `HomePage`), encapsulation (locators are private to pages), polymorphism (locator resolution). |
+| **OOP** | Inheritance (`BasePage` → `HomePage`), locators private to pages, locator resolution via strategy pattern. |
 | **SRP** | Each module has one responsibility: `retry_handler` handles retries, `data_loader` handles data, etc. |
 | **Data-Driven** | All test inputs come from `data/search_data.json`. Adding a new scenario requires zero code changes. |
 | **Smart Locators** | Every element has ≥ 2 locator strategies with automatic fallback. |
-| **Resilience** | Retry with exponential backoff, cookie banner handling, graceful degradation on missing elements. |
+| **Resilience** | Retry with exponential backoff, popup/banner handling, graceful skip on missing optional elements. |
 
 ---
 
@@ -104,6 +104,12 @@ ebay-e2e-automation/
 │   ├── data_loader.py         # JSON/YAML file loaders
 │   ├── screenshot_manager.py  # Screenshot capture utilities
 │   └── allure_helper.py       # Allure report attachments
+├── models/
+│   ├── __init__.py            # Re-exports flow state DTOs
+│   └── flow_state.py          # ShoppingFlowState, SmokeFlowState dataclasses
+├── gui/
+│   ├── app.py                 # Flask-based test runner web UI
+│   └── templates/index.html   # Test runner dashboard
 ├── conftest.py                # Root conftest: logging, settings, hooks
 ├── requirements.txt           # Python dependencies with pinned versions
 ├── pyproject.toml             # pytest markers, ruff config
@@ -320,6 +326,20 @@ Features:
 - **Environment**: Browser name, base URL, and framework version shown on overview.
 - **Parametrisation**: Each data-driven scenario has its own entry.
 
+### HTML Reports (per-run folders)
+
+Each test run generates self-contained HTML reports in a unique folder:
+
+```
+reports/run_20260310_133737/
+    smoke_test_20260310_133900.html
+    summary_20260310_133737.html
+screenshots/run_20260310_133737/
+    smoke_01_home_20260310_133756.png
+```
+
+Reports embed screenshots as base64, so they can be shared as standalone files.
+
 ### Install Allure CLI
 
 ```bash
@@ -398,3 +418,4 @@ Navigates to cart, reads the subtotal, asserts `total ≤ budget_per_item × ite
 | **Item Variants** | When size/colour is required, a **random** option is selected. This exercises different code paths but makes test outcomes non-deterministic for specific variant coverage. |
 | **Cart Persistence** | eBay may require login to persist cart across sessions. Guest carts are session-scoped. |
 | **Parallel Safety** | Each test gets an isolated `BrowserContext` — no shared cookies or state. Safe for `-n auto`. |
+| **Logging** | Log lines include clickable source references (`File "path", line N`) for PyCharm console navigation. |

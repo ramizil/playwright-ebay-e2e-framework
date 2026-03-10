@@ -367,7 +367,7 @@
     <a href="#ci-cd">CI/CD Pipeline</a>
 
     <div class="nav-group">How-To</div>
-    <a href="#howto-run">Run Tests</a>
+    <a href="#howto-run">3 Ways to Run</a>
     <a href="#howto-add-scenario">Add a Scenario</a>
     <a href="#howto-add-page">Add a Page Object</a>
 </nav>
@@ -531,11 +531,11 @@
         <span class="file">product_page.py</span> <span class="desc">— single product: variants (size, colour, quantity), add to cart</span><br>
         <span class="file">cart_page.py</span> <span class="desc">— shopping cart: subtotal, validation</span>
     </div>
-    <span class="folder">📁 tests/</span> <span class="desc">— test files + browser fixtures</span>
+    <span class="folder">📁 tests/</span> <span class="desc">— TestNG-style test classes + browser fixtures</span>
     <div class="tree-indent">
-        <span class="file">conftest.py</span> <span class="desc">— browser, context, page fixtures</span><br>
-        <span class="file">test_shopping_flow.py</span> <span class="desc">— data-driven parametrised E2E shopping test</span><br>
-        <span class="file">test_smoke.py</span> <span class="desc">— lightweight search-only smoke test</span>
+        <span class="file">conftest.py</span> <span class="desc">— session, function &amp; class-scoped fixtures, dependency-skip hook</span><br>
+        <span class="file">test_shopping_flow.py</span> <span class="desc">— TestEbayShoppingFlow class (4 ordered steps, parametrised)</span><br>
+        <span class="file">test_smoke.py</span> <span class="desc">— TestSmokeCheck class (3 ordered steps)</span>
     </div>
     <span class="folder">📁 utils/</span> <span class="desc">— helper functions</span>
     <div class="tree-indent">
@@ -543,6 +543,16 @@
         <span class="file">allure_helper.py</span> <span class="desc">— attach text/JSON/HTML to reports</span><br>
         <span class="file">data_loader.py</span> <span class="desc">— load JSON &amp; YAML files</span><br>
         <span class="file">screenshot_manager.py</span> <span class="desc">— capture &amp; save screenshots</span>
+    </div>
+    <span class="folder">📁 models/</span> <span class="desc">— shared data transfer objects</span>
+    <div class="tree-indent">
+        <span class="file">__init__.py</span> <span class="desc">— re-exports ShoppingFlowState, SmokeFlowState</span><br>
+        <span class="file">flow_state.py</span> <span class="desc">— dataclasses that carry state across test steps</span>
+    </div>
+    <span class="folder">📁 gui/</span> <span class="desc">— web-based test runner</span>
+    <div class="tree-indent">
+        <span class="file">app.py</span> <span class="desc">— Flask server (localhost:5000) with live log + step tracker</span><br>
+        <span class="file">templates/index.html</span> <span class="desc">— dashboard UI with scenario picker, browser chooser, flow vis</span>
     </div>
     <span class="file">conftest.py</span> <span class="desc">— root: logging, Allure env, run_id</span><br>
     <span class="file">pyproject.toml</span> <span class="desc">— project metadata, pytest config, linter rules</span><br>
@@ -590,6 +600,11 @@
         <tr><td><code>viewport</code></td><td>ViewportSettings</td><td>width × height</td></tr>
         <tr><td><code>run_id</code></td><td>str</td><td>Unique ID for this test run (timestamp)</td></tr>
     </table>
+    <p><strong>Per-run path properties:</strong></p>
+    <ul>
+        <li><code>reports_dir_for_run</code> → <code>reports/run_20260310_133737/</code> (auto-created)</li>
+        <li><code>screenshots_dir_for_run</code> → <code>screenshots/run_20260310_133737/</code> (auto-created)</li>
+    </ul>
 </div>
 </details>
 
@@ -631,11 +646,11 @@ resolve_browser_profile("firefox")
 <h2 id="folder-core">📁 core/ — The Engine</h2>
 <p>This is the <strong>heart</strong> of the framework. It provides the building blocks that every page object uses.</p>
 
-<h3 id="smart-locator">smart_locator.py — The Resilient Element Finder</h3>
+<h3 id="smart-locator">smart_locator.py — Multi-Strategy Element Finder</h3>
 
 <div class="callout">
-    <p><strong>The big idea:</strong> Instead of relying on one CSS selector that might break when eBay redesigns their site, we define <strong>multiple ways</strong> to find each element. If the first way fails, we try the second, then the third, and so on.
-    We use a <strong>tiered approach</strong>: Strategy #1 is chosen based on what kind of identifier the element has (stable ID, auto-generated ID, or none), and Strategy #2 is always a <strong>relative XPath</strong>.</p>
+    <p><strong>Core idea:</strong> Instead of relying on one CSS selector that might break when eBay redesigns their site, we define <strong>multiple ways</strong> to find each element. If the first way fails, we try the second, then the third, and so on.
+    Strategy #1 is chosen based on the element's identifier type (stable ID, auto-generated ID, or none), and Strategy #2 is always a <strong>relative XPath</strong>.</p>
 </div>
 
 <details>
@@ -741,7 +756,13 @@ SEARCH_INPUT = SmartLocator(
 <div class="fn-desc">Saves a full-page screenshot and attaches it to the Allure report.</div>
 
 <div class="fn-sig">accept_cookies_if_present() → None</div>
-<div class="fn-desc">Presses Escape to dismiss any modal overlay, then checks for GDPR cookie banner.</div>
+<div class="fn-desc">Dismisses cookie banners, shipping dialogs, CAPTCHA overlays, and other popups on page load.</div>
+
+<div class="fn-sig">_dismiss_overlay_popup() → None</div>
+<div class="fn-desc">Detects and closes CAPTCHA/verification overlays, promotional popups. Tries close buttons (CSS, data-testid, aria-label), checks iframes, presses Escape as fallback. Called automatically between retries.</div>
+
+<div class="fn-sig">_dismiss_shipping_dialog() → None</div>
+<div class="fn-desc">Dismisses the "Where are you shipping to?" modal if present.</div>
 
 <div class="fn-sig">wait(milliseconds) → None</div>
 <div class="fn-desc">Simple sleep. Use sparingly.</div>
@@ -796,6 +817,10 @@ def _click_add_to_cart(self):
 <summary><span class="tag tag-orange">func</span> get_logger(name) → Logger</summary>
 <div class="details-body"><p>Returns a named logger. Usage: <code>logger = get_logger(__name__)</code>. The name appears in log output so you know which file produced each line.</p></div>
 </details>
+
+<div class="callout callout-green">
+    <p><strong>Clickable links in PyCharm:</strong> Log lines include source references in Python traceback format (<code>File "path", line N</code>), so PyCharm automatically makes them clickable — jump straight to the code that produced each log entry.</p>
+</div>
 
 
 <!-- ======== PAGES FOLDER ======== -->
@@ -937,7 +962,7 @@ def _click_add_to_cart(self):
 
 <!-- ======== BUSINESS STEPS ======== -->
 <h2 id="folder-business-steps">📁 business_steps/ — Reusable Business Actions</h2>
-<p>This package sits between the page objects and the test scenarios.  It contains the <strong>four central functions</strong> from the task specification — each orchestrating one or more page objects into a complete user flow.</p>
+<p>This package sits between the page objects and the test scenarios.  It contains the <strong>four central business functions</strong> — each orchestrating one or more page objects into a complete user flow.</p>
 
 <div class="callout">
     <p><strong>Why separate from tests?</strong> Tests stay declarative ("search, add, validate") while all the orchestration details (page instantiation, step collection, screenshot capture) live here. New test scenarios simply import and compose these building blocks.</p>
@@ -966,87 +991,137 @@ def _click_add_to_cart(self):
     <p><strong>What's a fixture?</strong> A function that provides something a test needs (a browser, a page, settings). pytest injects it automatically when a test declares it as a parameter.</p>
 </div>
 
+<h4>Session-scoped fixtures</h4>
 <table>
     <tr><th>Fixture</th><th>Scope</th><th>What it provides</th></tr>
     <tr><td><code>test_settings</code></td><td>session</td><td>The <code>Settings</code> object (loaded once, shared across all tests)</td></tr>
     <tr><td><code>playwright_instance</code></td><td>session</td><td>Starts Playwright, yields it, then stops it when all tests are done</td></tr>
     <tr><td><code>browser_profile</code></td><td>session</td><td>Resolves <code>EBAY_BROWSER</code> env var to a <code>BrowserProfile</code></td></tr>
-    <tr><td><code>browser</code></td><td>session</td><td>Launches the actual browser (Chrome/Firefox/Edge). One browser for the whole session.</td></tr>
+    <tr><td><code>browser</code></td><td>session</td><td>Launches the actual browser (Chrome/Firefox/Edge). Kills lingering background processes for Edge/Chrome before launch. One browser for the whole session.</td></tr>
+</table>
+
+<h4>Function-scoped fixtures (single-function tests)</h4>
+<table>
+    <tr><th>Fixture</th><th>Scope</th><th>What it provides</th></tr>
     <tr><td><code>context</code></td><td>function</td><td><strong>New browser context per test</strong> (isolated cookies, storage). Enables tracing if configured.</td></tr>
     <tr><td><code>page</code></td><td>function</td><td><strong>New page (tab) per test</strong>. This is what page objects use to interact with the site.</td></tr>
 </table>
 
-<p>The fixture chain: <code>test_settings</code> → <code>playwright_instance</code> → <code>browser_profile</code> → <code>browser</code> → <code>context</code> → <code>page</code></p>
+<h4>Class-scoped fixtures (multi-step flow classes)</h4>
+<table>
+    <tr><th>Fixture</th><th>Scope</th><th>What it provides</th></tr>
+    <tr><td><code>class_context</code></td><td>class</td><td><strong>Shared browser context</strong> for all step methods in a test class. Cart, session, and cookies persist across steps — like TestNG's shared instance.</td></tr>
+    <tr><td><code>class_page</code></td><td>class</td><td><strong>Shared page (tab)</strong> for all step methods. This is what the TestNG-style test classes use.</td></tr>
+    <tr><td><code>scenario_data</code></td><td>class</td><td>Receives the parametrised scenario dict when using <code>@pytest.mark.parametrize("scenario_data", ..., indirect=True)</code> on a test class.</td></tr>
+</table>
+
+<div class="callout callout-green">
+    <p><strong>Why two scopes?</strong> Simple, single-function tests get a fresh <code>page</code> per test (full isolation). Multi-step class-based flows share a <code>class_page</code> across all step methods (so browser state — like cart contents — persists between steps).</p>
+</div>
+
+<details>
+<summary><span class="tag tag-green">hook</span> pytest_runtest_setup — Step dependency skip (dependsOnMethods)</summary>
+<div class="details-body"><p>When a step method inside a test class <strong>fails</strong>, all subsequent step methods in the same class are <strong>automatically skipped</strong> — equivalent to TestNG's <code>dependsOnMethods</code>. Tracked per parametrised variant so failures in <code>[headphones_under_50]</code> don't affect <code>[phone_case_under_20]</code>.</p></div>
+</details>
 
 <details>
 <summary><span class="tag tag-green">hook</span> auto_screenshot_on_failure (autouse)</summary>
-<div class="details-body"><p>Runs <strong>after every test</strong>. If the test failed, it captures a screenshot and saves the Playwright trace file. These are attached to the Allure report as evidence.</p></div>
+<div class="details-body"><p>Runs <strong>after every test step</strong>. If the step failed, it captures a screenshot and saves the Playwright trace file. Works for both function-scoped and class-scoped tests.</p></div>
 </details>
 
-<h3 id="test-e2e">test_shopping_flow.py &amp; test_smoke.py — Test Scenarios</h3>
+<h3 id="test-e2e">test_shopping_flow.py — TestNG-Style Test Class</h3>
 
-<p>This file contains the <strong>business logic functions</strong> (matching the task spec) and the <strong>parametrised test</strong>.</p>
-
-<h4>Business Logic Functions</h4>
-
-<details>
-<summary><span class="tag tag-green">func</span> search_items_by_name_under_price(page, base_url, query, max_price, limit) → list[str]</summary>
-<div class="details-body">
-    <p>Orchestrates search + filter + collect:</p>
-    <ol>
-        <li>Creates <code>HomePage</code>, opens eBay, searches for query</li>
-        <li>Creates <code>SearchResultsPage</code>, filters to Buy It Now, applies price filter</li>
-        <li>Collects up to <code>limit</code> item URLs under <code>max_price</code></li>
-    </ol>
+<div class="callout">
+    <p><strong>Inspired by Java/TestNG:</strong> Each test flow is a <strong>class</strong> where every step is a separate, numbered method — like <code>@Test(priority=0, description="...")</code>. If a step fails, all dependent steps are automatically skipped (equivalent to <code>dependsOnMethods</code>). Shared state flows through a <code>FlowState</code> dataclass — similar to Java instance fields like <code>this.urls</code>.</p>
 </div>
-</details>
 
-<details>
-<summary><span class="tag tag-green">func</span> add_items_to_cart(page, urls) → int</summary>
-<div class="details-body">
-    <p>For each URL:</p>
-    <ol>
-        <li>Creates <code>ProductPage</code>, navigates to the URL</li>
-        <li>Reads the product title (attached to Allure)</li>
-        <li>Calls <code>add_to_cart()</code> which handles variants + clicking</li>
-        <li>Counts successes</li>
-    </ol>
-</div>
-</details>
+<pre><code>@pytest.mark.parametrize("scenario_data", _scenarios, indirect=True)
+class TestEbayShoppingFlow:
+    """
+    Description:
+        Automated shopping flow: search, collect, add to cart, validate.
 
-<details>
-<summary><span class="tag tag-green">func</span> assert_cart_total_not_exceeds(page, budget_per_item, items_count)</summary>
-<div class="details-body"><p>Creates <code>CartPage</code>, opens the cart, calls <code>assert_cart_total_not_exceeds()</code>.</p></div>
-</details>
+    Steps to reproduce (manual):
+        1. Open eBay and sign in
+        2. Search for products by keyword
+        3. Filter by "Buy It Now" and price range
+        4. Add qualifying items to cart
+        5. Verify cart subtotal ≤ budget
 
-<h4 id="test-e2e-parametrized">The Parametrised Test</h4>
-<pre><code>@pytest.mark.parametrize("scenario", _scenarios, ids=_scenario_ids)
-def test_ebay_shopping_flow(page, test_settings, scenario):
-    # Step 1: Search + collect URLs
-    urls = search_items_by_name_under_price(...)
-    # Step 2: Add items to cart
-    added_count = add_items_to_cart(page, urls)
-    # Step 3: Validate cart total
-    assert_cart_total_not_exceeds(page, budget_per_item, added_count)</code></pre>
+    Expected:
+        Cart total does not exceed the calculated budget.
+    """
 
-<p>The <code>_scenarios</code> come from <code>data/search_data.json</code>. Each scenario runs as a <strong>separate test case</strong>:</p>
+    # ── @BeforeClass ──
+    @pytest.fixture(autouse=True, scope="class")
+    def setup_flow(self, request, class_page, test_settings, scenario_data):
+        request.cls.page = class_page
+        request.cls.settings = test_settings
+        request.cls.scenario = scenario_data
+        request.cls.state = FlowState()
+
+    # ── @Test(priority=0, description="Sign in to eBay") ──
+    def test_step_00_login(self): ...
+
+    # ── @Test(priority=1, dependsOn="login") ──
+    def test_step_01_search_and_collect(self): ...
+
+    # ── @Test(priority=2, dependsOn="search") ──
+    def test_step_02_add_to_cart(self): ...
+
+    # ── @Test(priority=3, dependsOn="add_to_cart") ──
+    def test_step_03_validate_cart(self): ...</code></pre>
+
+<p>Each step calls <strong>business_steps</strong> functions which orchestrate the page objects:</p>
+
+<table>
+    <tr><th>Step Method</th><th>Business Function</th><th>What It Does</th></tr>
+    <tr><td><code>test_step_00_login</code></td><td><code>login(page)</code></td><td>Sign in to eBay (skipped if no credentials)</td></tr>
+    <tr><td><code>test_step_01_search_and_collect</code></td><td><code>search_items_by_name_under_price()</code></td><td>Open eBay → search → filter → collect item URLs</td></tr>
+    <tr><td><code>test_step_02_add_to_cart</code></td><td><code>add_items_to_cart()</code></td><td>Visit each URL, select variants, add to cart</td></tr>
+    <tr><td><code>test_step_03_validate_cart</code></td><td><code>assert_cart_total_not_exceeds()</code></td><td>Open cart, assert total ≤ budget</td></tr>
+</table>
+
+<p>The <code>_scenarios</code> come from <code>data/search_data.json</code>. Each scenario runs as a <strong>separate class instance</strong>:</p>
 
 <table>
     <tr><th>Scenario ID</th><th>Query</th><th>Max Price</th><th>Limit</th></tr>
     <tr><td><code>headphones_under_50</code></td><td>wireless headphones</td><td>$50</td><td>5 items</td></tr>
     <tr><td><code>phone_case_under_20</code></td><td>phone case iPhone</td><td>$20</td><td>3 items</td></tr>
-    <tr><td><code>usb_cable_under_15</code></td><td>USB-C cable</td><td>$15</td><td>3 items</td></tr>
+    <tr><td><code>usb_cable_under_15</code></td><td>USB-C cable</td><td>$15</td><td>4 items</td></tr>
 </table>
 
-<h4 id="test-smoke">The Smoke Test</h4>
+<p>pytest collects them as individual step methods per scenario:</p>
+<pre><code>TestEbayShoppingFlow
+  ├── test_step_00_login[headphones_under_50]
+  ├── test_step_01_search_and_collect[headphones_under_50]
+  ├── test_step_02_add_to_cart[headphones_under_50]
+  ├── test_step_03_validate_cart[headphones_under_50]
+  ├── test_step_00_login[phone_case_under_20]
+  └── ...</code></pre>
+
+<h3 id="test-smoke">test_smoke.py — Smoke Test Class</h3>
+
 <pre><code>@pytest.mark.smoke
-def test_ebay_search_returns_results(page, test_settings):
-    home = HomePage(page)
-    home.open(test_settings.base_url)
-    home.search("laptop")
-    urls = SearchResultsPage(page).collect_items_under_price(max_price=9999, limit=1)
-    assert len(urls) >= 1</code></pre>
-<p>A quick sanity check: just verifies that searching returns at least one result. No cart interaction.</p>
+class TestSmokeCheck:
+    """
+    Description:
+        Quick sanity check — eBay reachable + search returns results.
+
+    Steps:
+        1. Open eBay home page
+        2. Search for 'laptop'
+        3. Verify at least 1 result found
+
+    Expected:
+        Search results page loads with ≥ 1 item.
+    """
+
+    def test_step_00_open_ebay(self): ...
+    def test_step_01_search(self): ...
+    def test_step_02_verify_results(self): ...</code></pre>
+
+<p>A lightweight 3-step test class. Uses the same class-scoped <code>class_page</code> fixture so the browser session persists across steps.</p>
 
 
 <!-- ======== UTILS ======== -->
@@ -1073,8 +1148,28 @@ def test_ebay_search_returns_results(page, test_settings):
 <h3 id="screenshot-mgr">screenshot_manager.py</h3>
 <table>
     <tr><th>Function</th><th>What it does</th></tr>
-    <tr><td><code>capture_screenshot(page, name)</code></td><td>Takes a full-page screenshot, saves to <code>screenshots/</code>, optionally attaches to Allure</td></tr>
-    <tr><td><code>capture_on_failure(page, test_name)</code></td><td>Called by the <code>auto_screenshot_on_failure</code> fixture. Prefixes filename with <code>FAILURE_</code>.</td></tr>
+    <tr><td><code>capture_screenshot(page, name, output_dir=None)</code></td><td>Takes a screenshot, saves to <code>output_dir</code> (or <code>screenshots/</code> by default), attaches to Allure</td></tr>
+    <tr><td><code>capture_on_failure(page, test_name, output_dir=None)</code></td><td>Called by the <code>auto_screenshot_on_failure</code> fixture. Prefixes filename with <code>FAILURE_</code>.</td></tr>
+</table>
+
+<div class="callout callout-green">
+    <p><strong>Per-run report folders:</strong> Each test run generates artifacts in unique timestamped folders: <code>reports/run_20260310_133737/</code> and <code>screenshots/run_20260310_133737/</code>. This ensures previous runs are never overwritten. Access these paths via <code>settings.reports_dir_for_run</code> and <code>settings.screenshots_dir_for_run</code>.</p>
+</div>
+
+<h3>html_report_generator.py</h3>
+<table>
+    <tr><th>Function</th><th>What it does</th></tr>
+    <tr><td><code>generate_scenario_report(scenario, output_dir)</code></td><td>Creates a self-contained HTML report for one test scenario with embedded screenshots</td></tr>
+    <tr><td><code>generate_run_summary(scenarios, output_dir, run_id)</code></td><td>Creates a summary HTML report covering all scenarios in the run</td></tr>
+</table>
+
+<h3>step_collector.py</h3>
+<table>
+    <tr><th>Class / Function</th><th>What it does</th></tr>
+    <tr><td><code>StepCollector</code></td><td>Thread-safe collector that records test steps (name, status, screenshots) during execution</td></tr>
+    <tr><td><code>collector.start_scenario()</code></td><td>Begin recording steps for a scenario</td></tr>
+    <tr><td><code>collector.add_step()</code></td><td>Record a pass/fail/skip step with optional screenshot</td></tr>
+    <tr><td><code>collector.finish_scenario()</code></td><td>Mark scenario complete, making it available for report generation</td></tr>
 </table>
 
 
@@ -1185,23 +1280,121 @@ CMD ["pytest", "tests/", "-v", "--alluredir=allure-results"]</code></pre>
 
 
 <!-- ======== HOW-TOs ======== -->
-<h2 id="howto-run">How-To: Run Tests</h2>
+<h2 id="howto-run">How-To: Run Tests — 3 Ways</h2>
+
+<p>You can run the tests using <strong>three different methods</strong>, depending on your preference:</p>
+
+<!-- Way 1: Command Line -->
+<h3 style="display:flex; align-items:center; gap:10px;"><span class="tag tag-green" style="font-size:13px;">1</span> Command Line (Terminal / PowerShell)</h3>
+
+<p>The most flexible way. Open a terminal in the project root and use <code>pytest</code> directly:</p>
 
 <table>
     <tr><th>What you want</th><th>Command</th></tr>
     <tr><td>Run all tests</td><td><code>pytest tests/ -v</code></td></tr>
     <tr><td>Run only smoke tests</td><td><code>pytest tests/ -m smoke -v</code></td></tr>
     <tr><td>Run only E2E tests</td><td><code>pytest tests/ -m e2e -v</code></td></tr>
-    <tr><td>Run with visible browser</td><td><code>EBAY_HEADLESS=false pytest tests/ -v</code></td></tr>
-    <tr><td>Run with Edge</td><td><code>EBAY_BROWSER=msedge pytest tests/ -v</code></td></tr>
-    <tr><td>Run with Chrome (branded)</td><td><code>EBAY_BROWSER=chrome pytest tests/ -v</code></td></tr>
-    <tr><td>Run in parallel (4 workers)</td><td><code>pytest tests/ -n 4 -v</code></td></tr>
-    <tr><td>Run in Docker (all browsers)</td><td><code>docker compose up --build</code></td></tr>
     <tr><td>Generate Allure report</td><td><code>allure serve allure-results</code></td></tr>
+    <tr><td>Run in Docker (all browsers)</td><td><code>docker compose up --build</code></td></tr>
 </table>
 
+<h4>Show Browser (headed mode)</h4>
+<p>By default tests run <strong>headless</strong> (no visible window). To watch the browser in real time:</p>
+<pre><code><span style="color:var(--text-muted);"># PowerShell</span>
+$env:EBAY_HEADLESS="false"; pytest tests/ -v
+
+<span style="color:var(--text-muted);"># Bash / macOS / Linux</span>
+EBAY_HEADLESS=false pytest tests/ -v</code></pre>
+
+<h4>Select a Different Browser</h4>
+<p>Set the <code>EBAY_BROWSER</code> environment variable. Supported values: <code>chromium</code>, <code>chrome</code>, <code>firefox</code>, <code>msedge</code>, <code>webkit</code>.</p>
+<pre><code><span style="color:var(--text-muted);"># PowerShell</span>
+$env:EBAY_BROWSER="msedge"; pytest tests/ -v
+$env:EBAY_BROWSER="firefox"; pytest tests/ -v
+$env:EBAY_BROWSER="chrome"; pytest tests/ -v
+
+<span style="color:var(--text-muted);"># Bash / macOS / Linux</span>
+EBAY_BROWSER=msedge pytest tests/ -v</code></pre>
+
+<h4>Parallel Workers</h4>
+<p>Uses <code>pytest-xdist</code>. Each worker gets its own isolated browser context.</p>
+<pre><code><span style="color:var(--text-muted);"># Auto-detect CPU count</span>
+pytest tests/ -v -n auto --dist=loadfile
+
+<span style="color:var(--text-muted);"># Fixed number of workers</span>
+pytest tests/ -v -n 4</code></pre>
+
 <div class="callout callout-green">
-    <p><strong>PowerShell note:</strong> On Windows, set env vars like this: <code>$env:EBAY_HEADLESS="false"; pytest tests/ -v</code></p>
+    <p><strong>Combine all three:</strong> <code>$env:EBAY_HEADLESS="false"; $env:EBAY_BROWSER="msedge"; pytest tests/ -v -n 2</code></p>
+</div>
+
+<!-- Way 2: eBay E2E Test Runner (GUI) -->
+<h3 style="display:flex; align-items:center; gap:10px;"><span class="tag tag-blue" style="font-size:13px;">2</span> eBay E2E Test Runner (GUI)</h3>
+
+<p>A built-in web-based test runner with a live dashboard. Launch it from the terminal, then control everything from your browser.</p>
+
+<pre><code>python gui/app.py</code></pre>
+
+<p>This opens <code>http://localhost:5000</code> in your browser with:</p>
+<table>
+    <tr><th>Feature</th><th>Description</th></tr>
+    <tr><td><strong>Test &amp; scenario selector</strong></td><td>Pick test files (Smoke, Shopping Flow) — data-driven scenarios are nested under the Shopping Flow test</td></tr>
+    <tr><td><strong>Live log stream</strong></td><td>Real-time console output as tests execute</td></tr>
+    <tr><td><strong>Test Flow panel</strong></td><td>Visual step-by-step tracker (Launch → Search → Collect → Cart → Validate)</td></tr>
+    <tr><td><strong>HTML report</strong></td><td>Self-contained report generated automatically at the end of each scenario</td></tr>
+</table>
+
+<h4>Show Browser (headed mode)</h4>
+<p>Toggle the <strong>"Show Browser"</strong> switch in the top control bar. When enabled, the browser window is visible during the run.</p>
+
+<h4>Select a Different Browser</h4>
+<p>Use the <strong>Browser dropdown</strong> in the top control bar. Options include Chromium, Chrome, Firefox, Edge, and WebKit.</p>
+
+<h4>Parallel Workers</h4>
+<p>Set the <strong>"Workers"</strong> number input in the top control bar to a value greater than 1. Each worker runs in its own browser context.</p>
+
+<div class="callout">
+    <p><strong>No command-line needed:</strong> The GUI sets all environment variables and pytest flags for you — just pick your options and click <strong>Run</strong>.</p>
+</div>
+
+<!-- Way 3: PyCharm -->
+<h3 style="display:flex; align-items:center; gap:10px;"><span class="tag tag-purple" style="font-size:13px;">3</span> PyCharm IDE</h3>
+
+<p>Run tests directly from PyCharm with full debugging support, breakpoints, and visual test results.</p>
+
+<h4>Initial Setup (one-time)</h4>
+<ol>
+    <li>Open the project in PyCharm and make sure the <strong>Python interpreter</strong> is set to the project's virtual environment (<code>venv/</code>)</li>
+    <li>Go to <strong>Settings → Tools → Python Integrated Tools → Default test runner</strong> and select <strong>pytest</strong></li>
+    <li>To set environment variables: <strong>Run → Edit Configurations → Environment variables</strong> and add entries like <code>EBAY_HEADLESS=false</code>, <code>EBAY_BROWSER=chromium</code></li>
+</ol>
+
+<h4>Running Tests</h4>
+<table>
+    <tr><th>What you want</th><th>How to do it</th></tr>
+    <tr><td>Run an entire test file</td><td>Right-click the file in the Project panel → <strong>Run 'pytest in test_…'</strong></td></tr>
+    <tr><td>Run a specific test class</td><td>Click the green ▶ gutter icon next to <code>class TestEbayShoppingFlow:</code></td></tr>
+    <tr><td>Run a single step method</td><td>Click the green ▶ gutter icon next to <code>def test_step_01_search_and_collect:</code></td></tr>
+    <tr><td>Run only smoke tests</td><td>Edit Configurations → <strong>Additional Arguments:</strong> <code>-m smoke</code></td></tr>
+    <tr><td>Debug with breakpoints</td><td>Set a breakpoint, then right-click → <strong>Debug 'pytest in test_…'</strong></td></tr>
+</table>
+
+<h4>Show Browser (headed mode)</h4>
+<p>In <strong>Run → Edit Configurations → Environment variables</strong>, add:</p>
+<pre><code>EBAY_HEADLESS=false</code></pre>
+
+<h4>Select a Different Browser</h4>
+<p>In <strong>Run → Edit Configurations → Environment variables</strong>, add:</p>
+<pre><code>EBAY_BROWSER=msedge</code></pre>
+<p>Supported values: <code>chromium</code>, <code>chrome</code>, <code>firefox</code>, <code>msedge</code>, <code>webkit</code>.</p>
+
+<h4>Parallel Workers</h4>
+<p>In <strong>Run → Edit Configurations → Additional Arguments</strong>, add:</p>
+<pre><code>-n auto --dist=loadfile</code></pre>
+<p>Or use a fixed number: <code>-n 4</code>.</p>
+
+<div class="callout callout-orange">
+    <p><strong>Tip:</strong> When debugging class-based tests in PyCharm, set your breakpoint inside a step method (e.g., <code>test_step_02_add_to_cart</code>). The shared <code>class_page</code> preserves the browser session from previous steps, so you can inspect the live page state at any point in the flow.</p>
 </div>
 
 
@@ -1263,53 +1456,63 @@ class MyPage(BasePage):
 <h2>How It All Fits Together — The Full Picture</h2>
 
 <div class="card" style="border-color: var(--accent); background: linear-gradient(135deg, var(--surface), var(--surface-2));">
-    <h4 style="margin-top:0; color:var(--accent);">Startup Sequence</h4>
+    <h4 style="margin-top:0; color:var(--accent);">Startup Sequence (TestNG-style class flow)</h4>
     <pre><code>1. You run: pytest tests/ -v
 2. pytest discovers conftest.py (root) → calls pytest_configure()
-   → setup_logging()        # configure console + file logging
-   → load_settings()        # read config.yaml + env overrides
+   → setup_logging()           # configure console + file logging
+   → load_settings()           # read config.yaml + env overrides
    → write_allure_environment()  # create environment.properties
+   → init flow-tracking state on config:
+     _failed_class_nodes = set()
+     _flow_statuses = {}
+     _flow_errors = {}
 
 3. pytest discovers tests/conftest.py → registers fixtures
-4. pytest discovers test_shopping_flow.py + test_smoke.py → parametrizes scenarios from JSON
+4. pytest discovers test classes → parametrizes from JSON
 
-5. For each test case (e.g., headphones_under_50):
-   a. Fixture chain fires:
+5. For each TestEbayShoppingFlow[headphones_under_50]:
+   a. Class-scoped fixture chain fires (≈ @BeforeClass):
       test_settings → playwright_instance → browser_profile
       → browser (launches Chrome/Firefox/Edge)
-      → context (fresh cookies/storage for this test)
-      → page (new browser tab)
+      → class_context (shared cookies/state for ALL steps)
+      → class_page (shared browser tab)
+      → setup_flow (assigns self.page, self.settings, self.state)
 
-   b. Test function runs:
-      search_items_by_name_under_price()
-        → HomePage(page).open()    → navigates, presses Escape
-        → HomePage(page).search()  → types query, presses Enter
-        → SearchResultsPage(page).filter_buy_it_now()
-        → SearchResultsPage(page).apply_price_filter()
-        → SearchResultsPage(page).collect_items_under_price()
-           → for each li.s-card: parse price, collect URL
-           → paginate if needed
+   b. Step methods run in order:
 
-      add_items_to_cart()
-        → for each URL:
-           → ProductPage(page).navigate(url)
-           → ProductPage(page).add_to_cart()
-              → select_random_variants()
-              → _click_add_to_cart()  (with @with_retry)
-              → _wait_for_cart_confirmation()
-              → take_screenshot()
+      test_step_00_login(self)         ← @Test(priority=0)
+        → login(self.page)
 
-      assert_cart_total_not_exceeds()
-        → CartPage(page).open_cart()
-        → CartPage(page).assert_cart_total_not_exceeds()
+      test_step_01_search_and_collect  ← @Test(priority=1, dependsOn="login")
+        → search_items_by_name_under_price()
+           → HomePage(page).open() → search()
+           → SearchResultsPage(page).filter_buy_it_now()
+           → .apply_price_filter() → .collect_items_under_price()
+        → self.state.urls = [collected URLs]
 
-   c. Teardown:
-      → auto_screenshot_on_failure captures evidence if test failed
-      → context closes (tracing saved)
-      → (browser stays open for next test in session)
+      test_step_02_add_to_cart         ← @Test(priority=2, dependsOn="search")
+        → add_items_to_cart(page, self.state.urls)
+           → for each URL: ProductPage → select_random_variants()
+             → _click_add_to_cart() (@with_retry) → screenshot
+        → self.state.added_count = N
 
-6. After all tests: browser closes, Playwright stops
-7. Allure report generated from allure-results/</code></pre>
+      test_step_03_validate_cart       ← @Test(priority=3, dependsOn="add_to_cart")
+        → assert_cart_total_not_exceeds(page, budget, added_count)
+           → CartPage(page).open_cart() → assert total ≤ budget
+
+      If ANY step fails:
+        → auto_screenshot_on_failure captures evidence
+        → parent_id added to _failed_class_nodes
+        → ALL subsequent steps are SKIPPED (dependsOnMethods)
+
+   c. Teardown (≈ @AfterClass):
+      → setup_flow yield: collector.finish_scenario(status, error)
+      → class_context closes (tracing saved)
+      → HTML report generated for this scenario
+
+6. Next scenario (phone_case_under_20) starts fresh
+7. After all scenarios: browser closes, Playwright stops
+8. Run summary HTML report generated</code></pre>
 </div>
 
 <div class="card" style="margin-top: 32px">

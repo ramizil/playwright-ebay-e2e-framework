@@ -2,8 +2,8 @@
 Retry Handler Module
 ====================
 
-Implements retry-with-exponential-backoff for any callable.  This is critical
-for handling unstable environments where transient failures (network hiccups,
+Implements retry-with-exponential-backoff for any callable.  Handles unstable
+environments where transient failures (network hiccups,
 slow DOM updates, momentary stale elements) would otherwise break tests.
 
 Two public APIs are provided:
@@ -59,7 +59,7 @@ def with_retry(
     Raises:
         The last captured exception if all attempts are exhausted.
 
-    Example::
+    Example:
 
         @with_retry(max_attempts=3, backoff_factor=0.5)
         def click_add_to_cart(page):

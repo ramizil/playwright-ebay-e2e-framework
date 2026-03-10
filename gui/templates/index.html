@@ -1495,7 +1495,7 @@ async function loadConfig() {
     </div>`;
   list.appendChild(allItem);
 
-  // Test files (dynamically discovered)
+  // Test files with data scenarios nested under the relevant test
   if (data.tests && data.tests.length) {
     const testHeader = document.createElement('div');
     testHeader.style.cssText = 'font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);padding:8px 4px 4px;margin-top:4px;border-top:1px solid var(--border);';
@@ -1510,29 +1510,35 @@ async function loadConfig() {
         <input type="checkbox" class="scenario-cb test-file-cb" value="${t.k_expr}" checked>
         <div class="scenario-info">
           <div class="scenario-id">${t.label}</div>
-          <div class="scenario-desc">${t.file} &middot; ${t.functions.length} test(s): ${fnList}</div>
+          <div class="scenario-desc">${t.file} &middot; ${t.functions.length} step(s): ${fnList}</div>
         </div>`;
       list.appendChild(item);
-    });
-  }
 
-  // Data-driven scenarios
-  if (data.scenarios && data.scenarios.length) {
-    const scenHeader = document.createElement('div');
-    scenHeader.style.cssText = 'font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);padding:8px 4px 4px;margin-top:4px;border-top:1px solid var(--border);';
-    scenHeader.textContent = 'Data Scenarios (search_data.json)';
-    list.appendChild(scenHeader);
+      // Nest data scenarios under the shopping flow test
+      if (t.name === 'test_shopping_flow' && data.scenarios && data.scenarios.length) {
+        const scenGroup = document.createElement('div');
+        scenGroup.style.cssText = 'margin-left:28px;padding-left:12px;border-left:2px solid var(--accent);margin-bottom:4px;';
 
-    data.scenarios.forEach(s => {
-      const item = document.createElement('label');
-      item.className = 'scenario-item';
-      item.innerHTML = `
-        <input type="checkbox" class="scenario-cb data-scenario-cb" value="${s.id}" checked>
-        <div class="scenario-info">
-          <div class="scenario-id">${s.id}</div>
-          <div class="scenario-desc">${s.description}</div>
-        </div>`;
-      list.appendChild(item);
+        const scenLabel = document.createElement('div');
+        scenLabel.style.cssText = 'font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);padding:6px 0 2px;';
+        scenLabel.textContent = 'Data Scenarios (search_data.json)';
+        scenGroup.appendChild(scenLabel);
+
+        data.scenarios.forEach(s => {
+          const scenItem = document.createElement('label');
+          scenItem.className = 'scenario-item';
+          scenItem.style.cssText = 'padding:6px 8px;margin:2px 0;';
+          scenItem.innerHTML = `
+            <input type="checkbox" class="scenario-cb data-scenario-cb" value="${s.id}" checked>
+            <div class="scenario-info">
+              <div class="scenario-id" style="font-size:0.78rem;">${s.id}</div>
+              <div class="scenario-desc" style="font-size:0.72rem;">${s.description}</div>
+            </div>`;
+          scenGroup.appendChild(scenItem);
+        });
+
+        list.appendChild(scenGroup);
+      }
     });
   }
 }
@@ -2226,7 +2232,7 @@ function parseStepFromLog(line) {
     completeLastChild('collect');
     addSubAction('collect', 'click Next → paginate');
   }
-  if (/Collected \d+ item/i.test(line)) {
+  if (/Collected \d+ item\(s?\)/i.test(line)) {
     const m = line.match(/Collected (\d+)/);
     completeLastChild('collect');
     addSubAction('collect', `collected ${m ? m[1] : '?'} items total`, 'done');

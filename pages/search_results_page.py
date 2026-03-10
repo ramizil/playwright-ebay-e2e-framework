@@ -2,8 +2,8 @@
 Search Results Page Object
 ==========================
 
-Represents the eBay search results listing.  Implements the core
-``searchItemsByNameUnderPrice`` logic from the task specification:
+Represents the eBay search results listing.  Handles price filtering,
+item collection with pagination, and price parsing:
 
 1. Apply the site's price filter (min=0, max=maxPrice).
 2. Iterate through result items and extract those whose price ≤ maxPrice.

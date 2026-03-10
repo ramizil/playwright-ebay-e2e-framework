@@ -93,7 +93,7 @@ def load_test_scenarios(filename: str = "search_data.json") -> List[Dict[str, An
         A list of scenario dictionaries, each containing at minimum:
         ``query``, ``max_price``, ``limit``, and ``budget_per_item``.
 
-    Example::
+    Example:
 
         scenarios = load_test_scenarios()
         # [{"id": "headphones_50", "query": "wireless headphones", ...}, ...]

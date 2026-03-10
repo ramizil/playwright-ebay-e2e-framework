@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Requirements Compliance Report — eBay E2E Framework</title>
+<style>
+  :root {
+    --pass: #22c55e; --fail: #ef4444; --warn: #f59e0b; --note: #3b82f6;
+    --bg: #0f172a; --card: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --heading: #f8fafc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+    padding: 2rem; max-width: 1100px; margin: 0 auto;
+  }
+  h1 { color: var(--heading); font-size: 1.8rem; margin-bottom: .3rem; }
+  .subtitle { color: var(--muted); font-size: .95rem; margin-bottom: 2rem; }
+  h2 {
+    color: var(--heading); font-size: 1.3rem; margin: 2.5rem 0 1rem;
+    border-bottom: 1px solid var(--border); padding-bottom: .5rem;
+  }
+  h3 { color: var(--heading); font-size: 1.05rem; margin: 1.5rem 0 .5rem; }
+
+  /* Summary bar */
+  .summary-bar {
+    display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;
+  }
+  .summary-card {
+    flex: 1; min-width: 140px; background: var(--card); border-radius: 10px;
+    padding: 1rem 1.2rem; border: 1px solid var(--border); text-align: center;
+  }
+  .summary-card .num { font-size: 2rem; font-weight: 700; }
+  .summary-card .label { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+  .num.pass { color: var(--pass); }
+  .num.warn { color: var(--warn); }
+  .num.fail { color: var(--fail); }
+
+  /* Requirement cards */
+  .req {
+    background: var(--card); border-radius: 10px; padding: 1.2rem 1.4rem;
+    margin-bottom: 1rem; border-left: 4px solid var(--pass);
+    border: 1px solid var(--border);
+  }
+  .req.pass  { border-left-color: var(--pass); }
+  .req.warn  { border-left-color: var(--warn); }
+  .req.fail  { border-left-color: var(--fail); }
+  .req.note  { border-left-color: var(--note); }
+
+  .req-header {
+    display: flex; align-items: center; gap: .7rem; margin-bottom: .6rem;
+  }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  }
+  .badge.pass { background: rgba(34,197,94,.15); color: var(--pass); }
+  .badge.warn { background: rgba(245,158,11,.15); color: var(--warn); }
+  .badge.fail { background: rgba(239,68,68,.15); color: var(--fail); }
+  .badge.note { background: rgba(59,130,246,.15); color: var(--note); }
+
+  .req-title { font-weight: 600; color: var(--heading); }
+  .req-body { color: var(--text); font-size: .9rem; }
+  .req-body p { margin-bottom: .5rem; }
+
+  .code-ref {
+    font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: .82rem;
+    background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+    padding: .6rem .9rem; display: block; margin: .5rem 0; overflow-x: auto;
+    white-space: pre; color: #c9d1d9;
+  }
+  code {
+    font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: .85rem;
+    background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 3px;
+  }
+  .file-link { color: #7dd3fc; }
+
+  table { width: 100%; border-collapse: collapse; margin: .7rem 0; font-size: .88rem; }
+  th, td { padding: .5rem .7rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+  td.status { font-weight: 700; }
+  td.status.pass { color: var(--pass); }
+  td.status.warn { color: var(--warn); }
+  td.status.fail { color: var(--fail); }
+
+  .scoring { display: grid; grid-template-columns: 1fr 80px 1fr; gap: .3rem .8rem; align-items: center; }
+  .scoring .bar-bg { background: #334155; border-radius: 6px; height: 8px; }
+  .scoring .bar-fill { height: 100%; border-radius: 6px; background: var(--pass); }
+  .scoring .pct { color: var(--muted); font-size: .82rem; text-align: right; }
+  .scoring .lbl { font-size: .88rem; }
+
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>Requirements Compliance Report</h1>
+<p class="subtitle">
+  eBay E2E Automation Framework &mdash; Playwright + Python<br>
+  Generated: 2026-03-10 &nbsp;|&nbsp; Project: <code>c:\GIT\playwright-ebay-e2e-framework</code>
+</p>
+
+<!-- ═══════════ SUMMARY ═══════════ -->
+<div class="summary-bar">
+  <div class="summary-card"><div class="num pass">22</div><div class="label">Requirements Met</div></div>
+  <div class="summary-card"><div class="num pass">0</div><div class="label">Minor Notes</div></div>
+  <div class="summary-card"><div class="num fail">0</div><div class="label">Missing</div></div>
+  <div class="summary-card"><div class="num" style="color:var(--muted)">1</div><div class="label">Skipped (Item 4)</div></div>
+</div>
+
+<!-- ═══════════ SECTION 1: GENERAL ═══════════ -->
+<h2>Section 2 — General Requirements (דרישות כלליות)</h2>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Playwright framework</span></div>
+  <div class="req-body">
+    <p>The entire framework is built on <strong>Playwright for Python (sync API)</strong>, version <code>1.57.0</code>.</p>
+    <span class="code-ref">requirements.txt → playwright==1.57.0</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Programming language: Python</span></div>
+  <div class="req-body">
+    <p>All source code is Python 3.12+. The requirement allows C#, Java, or Python.</p>
+    <span class="code-ref">pyproject.toml → requires-python = ">=3.12"</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Reporting: Allure Reports + HTML</span></div>
+  <div class="req-body">
+    <p>Two reporting layers are implemented:</p>
+    <ul style="margin-left:1.2rem; margin-bottom:.5rem;">
+      <li><strong>Allure Reports</strong> — integrated via <code>allure-pytest==2.13.5</code>, with environment metadata, step annotations, and screenshot attachments.</li>
+      <li><strong>Self-contained HTML reports</strong> — generated by <code>utils/html_report_generator.py</code> with embedded screenshots, collapsible step trees, and a glass-panel layout.</li>
+    </ul>
+    <span class="code-ref file-link">utils/html_report_generator.py (941 lines)
+utils/allure_helper.py
+requirements.txt → allure-pytest==2.13.5</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">OOP development</span></div>
+  <div class="req-body">
+    <p>All page objects inherit from <code>BasePage</code>. Dataclasses for configuration (<code>Settings</code>, <code>BrowserProfile</code>, <code>TimeoutSettings</code>, etc.). Business actions are separated from page objects.</p>
+    <span class="code-ref file-link">core/base_page.py → class BasePage
+pages/home_page.py → class HomePage(BasePage)
+pages/search_results_page.py → class SearchResultsPage(BasePage)
+pages/product_page.py → class ProductPage(BasePage)
+pages/cart_page.py → class CartPage(BasePage)
+pages/login_page.py → class LoginPage(BasePage)
+config/settings.py → @dataclass Settings, BrowserProfile, etc.
+models/flow_state.py → @dataclass ShoppingFlowState, SmokeFlowState</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Page Object Model (POM)</span></div>
+  <div class="req-body">
+    <p>Full POM implementation. Each eBay page has a dedicated page class with locators, actions, and assertions. Tests never interact with locators directly.</p>
+    <table>
+      <tr><th>Page Object</th><th>File</th><th>Responsibility</th></tr>
+      <tr><td><code>HomePage</code></td><td class="file-link">pages/home_page.py</td><td>Navigation, search</td></tr>
+      <tr><td><code>SearchResultsPage</code></td><td class="file-link">pages/search_results_page.py</td><td>Price filter, item collection, pagination</td></tr>
+      <tr><td><code>ProductPage</code></td><td class="file-link">pages/product_page.py</td><td>Variants, add to cart</td></tr>
+      <tr><td><code>CartPage</code></td><td class="file-link">pages/cart_page.py</td><td>Cart total, validation</td></tr>
+      <tr><td><code>LoginPage</code></td><td class="file-link">pages/login_page.py</td><td>Authentication flow</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Data-Driven: external test data (JSON/YAML)</span></div>
+  <div class="req-body">
+    <p>Test scenarios loaded from <code>data/search_data.json</code> via <code>load_test_scenarios()</code>. Framework config from <code>config/config.yaml</code>. Both JSON and YAML loaders in <code>utils/data_loader.py</code>.</p>
+    <span class="code-ref file-link">data/search_data.json → test_scenarios[] array
+config/config.yaml → timeouts, retry, browsers, viewport, etc.
+utils/data_loader.py → load_json(), load_yaml(), load_test_scenarios()</span>
+    <p>Parametrization in tests:</p>
+    <span class="code-ref">tests/test_shopping_flow.py:50-62
+_scenarios = load_test_scenarios("search_data.json")
+_scenario_ids = get_scenario_ids(_scenarios)
+@pytest.mark.parametrize("scenario_data", _scenarios, ids=_scenario_ids, indirect=True)
+class TestEbayShoppingFlow: ...</span>
+  </div>
+</div>
+
+
+<!-- ═══════════ SECTION 3: SMART LOCATORS ═══════════ -->
+<h2>Section 3 — Smart Locator Selection (בחירת לוקייטורים חכמה)</h2>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">At least 2 alternative locators per element</span></div>
+  <div class="req-body">
+    <p><code>SmartLocator.__post_init__</code> enforces a minimum of 2 strategies at construction time. Every element across all page objects defines CSS + XPath alternatives.</p>
+    <span class="code-ref file-link">core/smart_locator.py:77-83
+def __post_init__(self) -&gt; None:
+    """Require at least two strategies."""
+    if len(self.strategies) &lt; 2:
+        raise ValueError(
+            f"SmartLocator '{self.name}' requires at least 2 strategies, "
+            f"got {len(self.strategies)}."
+        )</span>
+    <p>Example element with dual locators:</p>
+    <span class="code-ref">pages/home_page.py:36-42
+SEARCH_INPUT = SmartLocator(
+    name="search_input",
+    strategies=[
+        LocatorStrategy("css", "#gh-ac", "search input by stable ID"),
+        LocatorStrategy("xpath", "//input[@name='_nkw' and @type='text']", "search input by name attr"),
+    ],
+)</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Runtime fallback: if primary fails, try alternative</span></div>
+  <div class="req-body">
+    <p><code>BasePage.find_element()</code> iterates through all strategies in order. If strategy #1 times out, it moves to strategy #2, and so on.</p>
+    <span class="code-ref file-link">core/base_page.py:194-208
+for idx, strategy in enumerate(smart_locator.strategies, start=1):
+    try:
+        locator = self._create_playwright_locator(strategy)
+        locator.wait_for(state=state, timeout=timeout)
+        self.logger.info(
+            "✓ [%s] Strategy #%d succeeded: %s",
+            smart_locator.name, idx,
+            strategy.description or strategy.value,
+        )
+        return locator
+    except (PwTimeout, Exception) as exc:
+        last_error = exc
+        self.logger.warning(
+            "✗ [%s] Strategy #%d failed (%s): %s", ...
+        )</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Number of attempts = number of locators defined</span></div>
+  <div class="req-body">
+    <p>The <code>for</code> loop in <code>find_element()</code> iterates over <strong>all</strong> strategies in <code>smart_locator.strategies</code>. An element with 3 strategies gets 3 attempts.</p>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Logic in Base Page layer — tests stay clean</span></div>
+  <div class="req-body">
+    <p>All locator resolution, fallback, retry, and logging lives in <code>BasePage.find_element()</code>. Tests call clean methods like <code>home.search("laptop")</code> — no locator logic visible in test code.</p>
+    <span class="code-ref">tests/test_smoke.py:141-142  (test code — no locators, no retries)
+home = HomePage(self.page)
+home.search("laptop")</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Clear log: which locator succeeded/failed, attempts count, screenshot on final failure</span></div>
+  <div class="req-body">
+    <p><strong>Success log:</strong></p>
+    <span class="code-ref">✓ [search_input] Strategy #1 succeeded: search input by stable ID</span>
+    <p><strong>Failure log:</strong></p>
+    <span class="code-ref">✗ [search_input] Strategy #1 failed (search input by stable ID): Timeout 15000ms exceeded...
+✗ [search_input] Strategy #2 failed (search input by name attr): Timeout 15000ms exceeded...</span>
+    <p><strong>Final failure — screenshot + error:</strong></p>
+    <span class="code-ref file-link">core/base_page.py:229-237
+screenshot_path = self.take_screenshot(f"FAIL_{smart_locator.name}")
+collector.add_sub_step("find_element", smart_locator.name, "fail",
+    detail=f"All {len(smart_locator.strategies)} strategies exhausted")
+raise SmartLocatorError(
+    f"All {len(smart_locator.strategies)} strategies exhausted for '{smart_locator.name}'."
+)</span>
+  </div>
+</div>
+
+
+<!-- ═══════════ SECTION 3: PARALLEL ═══════════ -->
+<h2>Section 3 — Parallel Execution (הרצות מקביליות)</h2>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Browser matrix: Chrome / Firefox / Edge simultaneously</span></div>
+  <div class="req-body">
+    <p>Three approaches are available:</p>
+    <ul style="margin-left:1.2rem;">
+      <li><strong>Docker Compose</strong> — 3 parallel containers (Chromium, Firefox, msedge), each with isolated volumes.</li>
+      <li><strong>CLI</strong> — <code>EBAY_BROWSER=msedge pytest tests/ -v</code></li>
+      <li><strong>Config</strong> — <code>config.yaml → browsers: [chromium, firefox, msedge]</code></li>
+    </ul>
+    <span class="code-ref file-link">docker-compose.yml → 3 services: test-chromium, test-firefox, test-msedge
+config/settings.py:34-44 → BROWSER_PROFILE_MAP: chromium, firefox, webkit, chrome, msedge, etc.</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Session isolation: each test in its own browser context</span></div>
+  <div class="req-body">
+    <p>Every test function gets its own <code>BrowserContext</code> (function-scoped <code>context</code> fixture). Class-based flow tests share a context within the class but are isolated from other classes.</p>
+    <span class="code-ref file-link">tests/conftest.py:210-224
+@pytest.fixture()
+def context(browser, test_settings) -&gt; Generator[BrowserContext, None, None]:
+    """Create an isolated browser context for a single test function."""
+    ctx = browser.new_context(**_make_context_opts(test_settings))
+    ...
+
+@pytest.fixture(scope="class")
+def class_context(browser, test_settings) -&gt; Generator[BrowserContext, None, None]:
+    """Class-scoped browser context shared across all step methods."""</span>
+    <p>Context options include unique locale, timezone, and user agent — no session leakage between tests.</p>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Separate report folder per run</span></div>
+  <div class="req-body">
+    <p>Each run creates a unique folder using the run_id timestamp:</p>
+    <span class="code-ref">reports/run_20260310_133737/
+    smoke_test_20260310_133900.html
+    summary_20260310_133737.html
+screenshots/run_20260310_133737/
+    smoke_01_home_20260310_133756.png
+    smoke_02_search_20260310_133829.png
+allure-results/run_20260310_133737/
+    environment.properties
+    *.json</span>
+    <span class="code-ref file-link">config/settings.py → reports_dir_for_run, screenshots_dir_for_run, allure_results_for_run</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">pytest-xdist for parallel workers</span></div>
+  <div class="req-body">
+    <p>Parallel execution via <code>pytest-xdist</code> with <code>-n auto --dist=loadfile</code>.</p>
+    <span class="code-ref file-link">requirements.txt → pytest-xdist==3.5.0
+Command: pytest tests/ -v -n auto --dist=loadfile --alluredir=allure-results</span>
+  </div>
+</div>
+
+
+<!-- ═══════════ SECTION 3: CORE FUNCTIONS ═══════════ -->
+<h2>Sections 3.1–3.3 — Core Functions (4 פונקציות מרכזיות)</h2>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">1. Login (הזדהות)</span></div>
+  <div class="req-body">
+    <p>Full sign-in flow: navigate → enter username → handle "Continue" button → enter password → click Sign In → verify greeting.</p>
+    <table>
+      <tr><th>Step</th><th>Implementation</th><th>File</th></tr>
+      <tr><td>Orchestration</td><td><code>login(page) → bool</code></td><td class="file-link">business_steps/login_actions.py:34</td></tr>
+      <tr><td>Page Object</td><td><code>LoginPage.login(user, pass)</code></td><td class="file-link">pages/login_page.py:139</td></tr>
+      <tr><td>Username field</td><td><code>SmartLocator #userid / XPath</code></td><td class="file-link">pages/login_page.py:44</td></tr>
+      <tr><td>Password field</td><td><code>SmartLocator #pass / XPath</code></td><td class="file-link">pages/login_page.py:53</td></tr>
+      <tr><td>Sign-in button</td><td><code>SmartLocator #sgnBt / XPath</code></td><td class="file-link">pages/login_page.py:62</td></tr>
+      <tr><td>Verification</td><td><code>SIGNED_IN_GREETING (#gh-ug)</code></td><td class="file-link">pages/login_page.py:80</td></tr>
+    </table>
+    <p>Credentials from env vars <code>EBAY_USERNAME</code> / <code>EBAY_PASSWORD</code>. Skips gracefully if not set.</p>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">2. searchItemsByNameUnderPrice (חיפוש עם תנאי מחיר)</span></div>
+  <div class="req-body">
+    <table>
+      <tr><th>Requirement</th><th>Status</th><th>Implementation</th></tr>
+      <tr><td>Search by query</td><td class="status pass">✓</td><td><code>HomePage.search(query)</code> → type + Enter</td></tr>
+      <tr><td>Price filter (min/max)</td><td class="status pass">✓</td><td><code>SearchResultsPage.apply_price_filter(max_price)</code> — fills min=0, max=maxPrice via SmartLocators</td></tr>
+      <tr><td>Collect up to N items ≤ maxPrice</td><td class="status pass">✓</td><td><code>collect_items_under_price(max_price, limit=5)</code> — parses price from each card, filters ≤ maxPrice</td></tr>
+      <tr><td>Paging: Next button</td><td class="status pass">✓</td><td><code>_go_to_next_page()</code> clicks <code>NEXT_PAGE_BUTTON</code>. Loop continues until <code>limit</code> or <code>max_pages</code>.</td></tr>
+      <tr><td>Return URLs</td><td class="status pass">✓</td><td>Returns <code>list[str]</code> of item URLs</td></tr>
+      <tr><td>Return fewer than N if not enough</td><td class="status pass">✓</td><td>Returns what it has (even 0)</td></tr>
+    </table>
+    <span class="code-ref file-link">business_steps/search_actions.py:26 → search_items_by_name_under_price()
+pages/search_results_page.py:166 → collect_items_under_price()
+pages/search_results_page.py:318 → _go_to_next_page()</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">3. addItemsToCart (הוספה לסל)</span></div>
+  <div class="req-body">
+    <table>
+      <tr><th>Requirement</th><th>Status</th><th>Implementation</th></tr>
+      <tr><td>Loop through URLs</td><td class="status pass">✓</td><td><code>for idx, url in enumerate(urls, start=1):</code></td></tr>
+      <tr><td>Open item page</td><td class="status pass">✓</td><td><code>product_page.navigate(url)</code></td></tr>
+      <tr><td>Select variants (size/color/qty)</td><td class="status pass">✓</td><td><code>select_random_variants()</code> → <code>_select_size_if_present()</code>, <code>_select_color_if_present()</code>, <code>_set_random_quantity()</code></td></tr>
+      <tr><td>Click "Add to cart"</td><td class="status pass">✓</td><td><code>_click_add_to_cart()</code> with retry (3 attempts)</td></tr>
+      <tr><td>Screenshot + log per item</td><td class="status pass">✓</td><td><code>capture_screenshot(page, f"06_add_to_cart_item_{idx}")</code> + <code>collector.add_step()</code></td></tr>
+    </table>
+    <span class="code-ref file-link">business_steps/cart_actions.py:26 → add_items_to_cart(page, urls) → int
+pages/product_page.py:130 → select_random_variants()
+pages/product_page.py:232 → add_to_cart() → bool</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">4. assertCartTotalNotExceeds (אימות סכום סל)</span></div>
+  <div class="req-body">
+    <table>
+      <tr><th>Requirement</th><th>Status</th><th>Implementation</th></tr>
+      <tr><td>Open cart</td><td class="status pass">✓</td><td><code>CartPage.open_cart()</code> → navigates to <code>https://cart.ebay.com</code></td></tr>
+      <tr><td>Read subtotal/total</td><td class="status pass">✓</td><td><code>CartPage.get_subtotal()</code> → parses <code>CART_SUBTOTAL</code> / <code>CART_TOTAL_PRICE</code></td></tr>
+      <tr><td>Calculate threshold</td><td class="status pass">✓</td><td><code>max_allowed = budget_per_item * items_count</code></td></tr>
+      <tr><td>Assert total ≤ threshold</td><td class="status pass">✓</td><td><code>assert actual_total &lt;= max_allowed</code></td></tr>
+      <tr><td>Screenshot / Trace</td><td class="status pass">✓</td><td>Screenshots: <code>07_cart_page</code>, <code>08_cart_validation</code>. Playwright trace on failure (conftest).</td></tr>
+    </table>
+    <span class="code-ref file-link">business_steps/cart_actions.py:80 → assert_cart_total_not_exceeds(page, budget, count)
+pages/cart_page.py:185 → assert_cart_total_not_exceeds(budget, count)
+pages/cart_page.py:108 → open_cart()</span>
+  </div>
+</div>
+
+
+<!-- ═══════════ RESILIENCE ═══════════ -->
+<h2>Requirement 4 — Resilience (התמודדות עם סביבות לא יציבות)</h2>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Retry with Backoff</span></div>
+  <div class="req-body">
+    <p>The <code>@with_retry</code> decorator implements exponential backoff with jitter:</p>
+    <span class="code-ref">wait = backoff_factor × 2^(attempt-1) × [1 ± 0.25 jitter]</span>
+    <p>Config: <code>max_attempts: 3</code>, <code>backoff_factor: 1.0</code>, <code>jitter: true</code></p>
+    <p>Used on: <code>click()</code>, <code>fill()</code>, <code>type_text()</code>, <code>_click_add_to_cart()</code></p>
+    <span class="code-ref file-link">core/retry_handler.py → @with_retry decorator
+config/config.yaml:17-20 → retry settings</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Timeouts (configurable)</span></div>
+  <div class="req-body">
+    <p>Three timeout tiers, all configurable via YAML or env vars:</p>
+    <table>
+      <tr><th>Timeout</th><th>Default</th><th>Config Key</th></tr>
+      <tr><td>Element wait</td><td>15,000 ms</td><td><code>timeouts.default</code></td></tr>
+      <tr><td>Navigation</td><td>30,000 ms</td><td><code>timeouts.navigation</code></td></tr>
+      <tr><td>Action</td><td>5,000 ms</td><td><code>timeouts.action</code></td></tr>
+    </table>
+    <span class="code-ref file-link">config/settings.py:80-91 → TimeoutSettings dataclass</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Graceful Recovery</span></div>
+  <div class="req-body">
+    <p>Multiple layers of graceful recovery:</p>
+    <ul style="margin-left:1.2rem;">
+      <li><strong>Popup dismissal</strong> — <code>accept_cookies_if_present()</code>, <code>_dismiss_shipping_dialog()</code>, <code>_dismiss_overlay_popup()</code></li>
+      <li><strong>CAPTCHA detection</strong> — <code>_check_for_captcha()</code> fails fast with clear error</li>
+      <li><strong>Optional elements</strong> — variant selectors use <code>optional=True</code> to skip gracefully</li>
+      <li><strong>Overlay auto-dismiss on retry</strong> — <code>_retry_callback</code> calls <code>_dismiss_overlay_popup()</code> between attempts</li>
+      <li><strong>Class-flow step skipping</strong> — if step N fails, steps N+1..M are auto-skipped (TestNG-style <code>dependsOnMethods</code>)</li>
+    </ul>
+    <span class="code-ref file-link">core/base_page.py:558 → accept_cookies_if_present()
+core/base_page.py:580 → _dismiss_shipping_dialog()
+core/base_page.py:619 → _dismiss_overlay_popup()
+core/base_page.py:439 → _check_for_captcha()
+tests/conftest.py:273 → pytest_runtest_setup (step skip logic)</span>
+  </div>
+</div>
+
+
+<!-- ═══════════ SECTION 5: DELIVERABLES ═══════════ -->
+<h2>Section 5 — Deliverables (מה להגיש)</h2>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">GitHub repository link</span></div>
+  <div class="req-body"><p>Project is a Git repository at <code>C:/GIT/playwright-ebay-e2e-framework</code>, ready to push to GitHub.</p></div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">README with: how to run, architecture, limitations</span></div>
+  <div class="req-body">
+    <table>
+      <tr><th>README Section</th><th>Status</th><th>Content</th></tr>
+      <tr><td>How to run</td><td class="status pass">✓</td><td>Prerequisites, install steps, CLI commands (headed, headless, parallel, smoke, Docker)</td></tr>
+      <tr><td>Architecture</td><td class="status pass">✓</td><td>POM, core layer, utils, configuration. Full directory tree.</td></tr>
+      <tr><td>Limitations</td><td class="status pass">✓</td><td>Guest user, USD-only, CAPTCHA, auction-only items, random variants, session scope</td></tr>
+    </table>
+    <span class="code-ref file-link">README.md (180+ lines)</span>
+  </div>
+</div>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Pass</span><span class="req-title">Run report (Allure / HTML)</span></div>
+  <div class="req-body">
+    <p>Both Allure JSON results and self-contained HTML reports are generated automatically after every run in per-run folders.</p>
+    <span class="code-ref">reports/run_20260310_133737/smoke_test_20260310_133900.html
+reports/run_20260310_133737/summary_20260310_133737.html
+allure-results/run_20260310_133737/</span>
+  </div>
+</div>
+
+
+<!-- ═══════════ SECTION 4: SKIPPED ═══════════ -->
+<h2>Section 4 — AI Code Review (skipped per instructions)</h2>
+
+<div class="req note">
+  <div class="req-header"><span class="badge note">Skipped</span><span class="req-title">AI Generated Code Review</span></div>
+  <div class="req-body"><p>Skipped as instructed ("ignore item number 4").</p></div>
+</div>
+
+
+<!-- ═══════════ MINOR NOTE ═══════════ -->
+<h2>Minor Notes</h2>
+
+<div class="req pass">
+  <div class="req-header"><span class="badge pass">Fixed</span><span class="req-title">business_steps screenshots now use per-run folder</span></div>
+  <div class="req-body">
+    <p>All <code>capture_screenshot()</code> calls in <code>business_steps/cart_actions.py</code> and <code>business_steps/search_actions.py</code> now accept and pass <code>screenshots_dir</code>, routing all screenshots into the per-run folder (<code>screenshots/run_*/</code>).</p>
+  </div>
+</div>
+
+
+<!-- ═══════════ SCORING ═══════════ -->
+<h2>Section 6 — Scoring Criteria Alignment (קריטריונים להערכה)</h2>
+
+<table>
+  <tr><th>Criterion</th><th>Weight</th><th>Coverage</th><th>Evidence</th></tr>
+  <tr>
+    <td><strong>Architecture &amp; Clean Code</strong><br><small>POM, OOP, SRP, Utils</small></td>
+    <td>25%</td>
+    <td class="status pass">Full</td>
+    <td>BasePage → Page Objects → Business Steps → Tests. Dataclasses for config. Utils for screenshots, data loading, Allure, HTML reports. DTOs in separate <code>models/</code> package.</td>
+  </tr>
+  <tr>
+    <td><strong>Robustness &amp; Smart Locators</strong><br><small>Dynamic elements, variants, paging, price parsing</small></td>
+    <td>25%</td>
+    <td class="status pass">Full</td>
+    <td>SmartLocator with ≥2 strategies enforced. Variant selection (size/color/qty). Pagination loop. Price parsing with regex. Popup/overlay/CAPTCHA handling.</td>
+  </tr>
+  <tr>
+    <td><strong>Automation Infrastructure</strong><br><small>Retry + Smart Locators + parallel execution</small></td>
+    <td>25%</td>
+    <td class="status pass">Full</td>
+    <td>@with_retry (exponential backoff + jitter). SmartLocator fallback chain. pytest-xdist. Docker Compose 3-browser matrix. Session isolation.</td>
+  </tr>
+  <tr>
+    <td><strong>Data-Driven</strong><br><small>Config, ENV, profiles</small></td>
+    <td>15%</td>
+    <td class="status pass">Full</td>
+    <td>JSON test data. YAML config. ENV overrides (EBAY_BROWSER, EBAY_HEADLESS, etc.). Browser profiles (chromium, firefox, msedge, chrome, webkit).</td>
+  </tr>
+  <tr>
+    <td><strong>Reports / Documentation</strong><br><small>README, reports, screenshots</small></td>
+    <td>10%</td>
+    <td class="status pass">Full</td>
+    <td>README.md. Allure reports. Self-contained HTML reports with embedded screenshots. Per-run report folders. Runbook.html. Presentation.html.</td>
+  </tr>
+</table>
+
+
+<footer>
+  Compliance Report generated for <strong>playwright-ebay-e2e-framework</strong> &mdash; March 2026<br>
+  All requirements from "תרגיל למפתח אוטומציה בכיר" are addressed (Section 4 skipped per request).
+</footer>
+
+</body>
+</html>

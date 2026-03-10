@@ -2,9 +2,8 @@
 Screenshot Manager Module
 ==========================
 
-Provides high-level screenshot utilities that complement the per-page
-``take_screenshot`` method on ``BasePage``.  This module is used by
-fixtures and hooks to capture evidence at key moments:
+Screenshot utilities used by fixtures and hooks to capture evidence
+at key moments:
 
 * **On test failure** – automatic screenshot attached to the Allure report.
 * **On explicit request** – e.g. after adding each item to the cart.
@@ -35,6 +34,7 @@ def capture_screenshot(
     name: str = "screenshot",
     full_page: bool = True,
     attach_to_allure: bool = True,
+    output_dir: Path | None = None,
 ) -> str:
     """Capture a browser screenshot and optionally attach it to Allure.
 
@@ -45,13 +45,18 @@ def capture_screenshot(
                            If ``False``, capture only the current viewport.
         attach_to_allure:  If ``True``, auto-attach the image to the running
                            Allure report step.
+        output_dir:        Optional per-run directory.  Defaults to the global
+                           ``screenshots/`` folder.
 
     Returns:
         The absolute filesystem path of the saved PNG file.
     """
+    dest = output_dir or SCREENSHOT_DIR
+    dest.mkdir(parents=True, exist_ok=True)
+
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     filename = f"{name}_{timestamp}.png"
-    filepath = SCREENSHOT_DIR / filename
+    filepath = dest / filename
 
     page.screenshot(path=str(filepath), full_page=full_page)
     logger.info("Screenshot saved: %s", filepath)
@@ -66,17 +71,24 @@ def capture_screenshot(
     return str(filepath)
 
 
-def capture_on_failure(page: Page, test_name: str) -> str:
+def capture_on_failure(
+    page: Page,
+    test_name: str,
+    output_dir: Path | None = None,
+) -> str:
     """Specialised screenshot for test failures — always full-page, always attached.
 
     Called from the ``pytest_runtest_makereport`` hook in ``conftest.py``.
 
     Args:
-        page:      Playwright ``Page`` from the failing test's fixture.
-        test_name: ``request.node.name`` — used in the filename for traceability.
+        page:       Playwright ``Page`` from the failing test's fixture.
+        test_name:  ``request.node.name`` — used in the filename for traceability.
+        output_dir: Optional per-run screenshots directory.
 
     Returns:
         Path to the saved screenshot.
     """
     safe_name = test_name.replace("[", "_").replace("]", "_").replace("/", "_")
-    return capture_screenshot(page, name=f"FAILURE_{safe_name}", full_page=True)
+    return capture_screenshot(
+        page, name=f"FAILURE_{safe_name}", full_page=True, output_dir=output_dir,
+    )

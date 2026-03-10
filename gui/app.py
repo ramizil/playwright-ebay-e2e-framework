@@ -310,20 +310,27 @@ def api_stop():
 
 @app.route("/api/reports")
 def api_reports():
-    """List generated HTML report files (newest first)."""
+    """List generated HTML report files (newest first).
+
+    Scans both the top-level ``reports/`` directory and per-run sub-folders
+    (``reports/run_*/``) so it works for both old flat reports and new
+    per-run organised reports.
+    """
     if not REPORTS_DIR.exists():
         return jsonify([])
-    files = sorted(REPORTS_DIR.glob("*.html"), key=os.path.getmtime, reverse=True)
+    files = sorted(REPORTS_DIR.rglob("*.html"), key=os.path.getmtime, reverse=True)
     return jsonify([
-        {"name": f.stem, "filename": f.name, "url": f"/reports/{f.name}",
+        {"name": f.stem, "filename": f.name,
+         "url": f"/reports/{f.relative_to(REPORTS_DIR).as_posix()}",
+         "run": f.parent.name if f.parent != REPORTS_DIR else "",
          "size": f.stat().st_size, "mtime": os.path.getmtime(f)}
-        for f in files[:30]
+        for f in files[:50]
     ])
 
 
 @app.route("/reports/<path:filename>")
 def serve_report(filename):
-    """Serve an HTML report file."""
+    """Serve an HTML report file (supports nested run_* sub-folders)."""
     return send_from_directory(str(REPORTS_DIR), filename)
 
 

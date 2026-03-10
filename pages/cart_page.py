@@ -3,7 +3,7 @@ Cart Page Object
 ================
 
 Represents eBay's shopping cart page (``https://cart.ebay.com``).
-Implements the ``assertCartTotalNotExceeds`` logic from the task spec:
+Handles cart navigation, subtotal parsing, and budget validation:
 
 * Navigate to the cart.
 * Read the displayed subtotal.

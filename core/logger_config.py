@@ -14,11 +14,12 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 _LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
-_LOG_FORMAT = "%(asctime)s [%(levelname)-8s] %(name)-30s | %(message)s"
+_LOG_FORMAT = '%(asctime)s [%(levelname)-8s] %(name)-30s | %(message)s  File "%(pathname)s", line %(lineno)d'
 _LOG_DATE_FMT = "%Y-%m-%d %H:%M:%S"
 _CONFIGURED = False
 
@@ -32,7 +33,7 @@ def setup_logging(level: str = "INFO") -> None:
     """Configure the root logger with console + file handlers.
 
     This is called once at framework startup (typically from conftest.py).
-    Subsequent calls are no-ops so that parallel workers don't duplicate
+    Later calls are ignored so parallel workers don't add duplicate
     handlers.
 
     Args:
@@ -48,7 +49,7 @@ def setup_logging(level: str = "INFO") -> None:
     root = logging.getLogger()
     root.setLevel(numeric_level)
 
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(stream=sys.stdout)
     console_handler.setLevel(numeric_level)
     console_handler.setFormatter(logging.Formatter(_LOG_FORMAT, _LOG_DATE_FMT))
     root.addHandler(console_handler)
@@ -76,7 +77,7 @@ def get_logger(name: str) -> logging.Logger:
         A ``logging.Logger`` instance that inherits the root configuration
         set up by ``setup_logging``.
 
-    Example::
+    Example:
 
         from core.logger_config import get_logger
         logger = get_logger(__name__)

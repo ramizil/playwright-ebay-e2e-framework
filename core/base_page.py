@@ -3,7 +3,7 @@ Base Page Module
 ================
 
 The foundation of the Page Object Model (POM).  Every page class in the
-framework inherits from ``BasePage``, which encapsulates:
+framework inherits from ``BasePage``, which provides:
 
 * **Smart locator resolution** – tries multiple locator strategies per element
   and logs which one succeeded or failed.
@@ -12,9 +12,9 @@ framework inherits from ``BasePage``, which encapsulates:
 * **Screenshot capture** – takes a timestamped screenshot on any element
   lookup failure and attaches it to the Allure report.
 * **Logging** – every action (click, type, navigate) is logged with timing
-  information for easy debugging.
+  information for debugging.
 
-Design Decisions:
+Notes:
     - Uses Playwright's **synchronous** API for simpler pytest integration.
     - Locator resolution lives here (not in tests) so tests stay declarative.
     - Screenshots are saved to ``screenshots/`` AND attached to Allure.
@@ -76,14 +76,22 @@ class BasePage:
         self.default_timeout = default_timeout
         self.logger = get_logger(self.__class__.__name__)
 
-    @staticmethod
-    def _retry_callback(action_name: str, target_name: str):
-        """Return an ``on_retry`` callback that records the retry as a sub-step."""
+    def _retry_callback(self, action_name: str, target_name: str):
+        """Return an ``on_retry`` callback that records the retry as a sub-step.
+
+        Between retries the callback also attempts to dismiss any overlay
+        popups (CAPTCHA, shipping dialog, etc.) that may be intercepting
+        clicks and causing the original failure.
+        """
         def _on_retry(attempt: int, exc: Exception) -> None:
             collector.add_sub_step(
                 "retry", target_name, status="retry",
                 detail=f"{action_name} attempt {attempt} failed: {type(exc).__name__}",
             )
+            try:
+                self._dismiss_overlay_popup()
+            except Exception:
+                pass
         return _on_retry
 
     # ------------------------------------------------------------------
@@ -295,6 +303,8 @@ class BasePage:
         """Type text character-by-character (simulates real keystrokes).
 
         Useful for search inputs that trigger autocomplete on each keystroke.
+        Wrapped with retry logic so transient overlay/popup issues are handled
+        automatically (the retry callback dismisses overlays between attempts).
 
         Args:
             smart_locator: The target input's smart locator.
@@ -303,11 +313,17 @@ class BasePage:
             timeout:       Per-strategy wait in ms.
         """
         collector.begin_sub_step()
-        element = self.find_element(smart_locator, timeout=timeout)
-        element.click()
-        element.fill("")
-        element.type(text, delay=delay)
-        self.logger.info("Typed '%s' into '%s'", text, smart_locator.name)
+
+        @with_retry(max_attempts=3, backoff_factor=0.5, exceptions=(Exception,),
+                    on_retry=self._retry_callback("type_text", smart_locator.name))
+        def _type() -> None:
+            element = self.find_element(smart_locator, timeout=timeout)
+            element.click()
+            element.fill("")
+            element.type(text, delay=delay)
+            self.logger.info("Typed '%s' into '%s'", text, smart_locator.name)
+
+        _type()
         collector.add_sub_step("type_text", smart_locator.name, detail=f"'{text}'")
         self._update_live_view()
 
@@ -488,19 +504,22 @@ class BasePage:
         except Exception:
             pass
 
-    def take_screenshot(self, name: str = "screenshot") -> str:
+    def take_screenshot(self, name: str = "screenshot", output_dir: Optional[Path] = None) -> str:
         """Capture a full-page screenshot and attach it to the Allure report.
 
         Args:
-            name: A descriptive name (used in the filename and Allure label).
+            name:       A descriptive name (used in the filename and Allure label).
+            output_dir: Optional per-run screenshots directory.
 
         Returns:
             The absolute path to the saved screenshot file.
         """
         collector.begin_sub_step()
+        dest = output_dir or SCREENSHOT_DIR
+        dest.mkdir(parents=True, exist_ok=True)
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         filename = f"{name}_{timestamp}.png"
-        filepath = SCREENSHOT_DIR / filename
+        filepath = dest / filename
 
         self.page.screenshot(path=str(filepath), full_page=True)
         self.logger.info("Screenshot saved: %s", filepath)
@@ -548,9 +567,10 @@ class BasePage:
     def accept_cookies_if_present(self) -> None:
         """Dismiss cookie banners and overlay dialogs that appear on first visit.
 
-        eBay may show a GDPR cookie banner and/or a "Ship to" address dialog.
-        Both block interaction with the page.  Pressing Escape first clears
-        any modal overlay, then we look for the cookie banner.
+        eBay may show a GDPR cookie banner, a "Ship to" address dialog, a
+        "Where are you shipping to?" modal, or a CAPTCHA/verification overlay.
+        All of these block interaction with the page and must be dismissed
+        before tests can proceed.
         """
         self.page.keyboard.press("Escape")
         self.wait(500)
@@ -563,3 +583,105 @@ class BasePage:
                 self.logger.info("Cookie banner dismissed")
         except Exception:
             pass
+
+        self._dismiss_shipping_dialog()
+        self._dismiss_overlay_popup()
+
+    def _dismiss_shipping_dialog(self) -> None:
+        """Dismiss the 'Where are you shipping to?' modal if present.
+
+        This dialog appears intermittently on certain eBay regions/browsers
+        and blocks all page interaction until closed.  We try several
+        selectors for the close (X) button, then fall back to Escape and
+        finally to clicking Confirm as a last resort.
+        """
+        try:
+            dialog_text = self.page.locator("text=Where are you shipping to?")
+            if not dialog_text.is_visible(timeout=2_000):
+                return
+
+            self.logger.info("Shipping dialog detected — dismissing")
+
+            close_selectors = [
+                "button[aria-label='Close dialog']",
+                "button[aria-label='Close']",
+                ".x-overlay-close button",
+                ".lightbox-dialog__close",
+                "button.fake-btn--close",
+                "[data-testid='dialog-close-button']",
+            ]
+            for sel in close_selectors:
+                try:
+                    btn = self.page.locator(sel).first
+                    if btn.is_visible(timeout=500):
+                        btn.click()
+                        self.logger.info("Shipping dialog closed via %s", sel)
+                        self.page.wait_for_timeout(300)
+                        return
+                except Exception:
+                    continue
+
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(500)
+
+            if dialog_text.is_visible(timeout=500):
+                confirm = self.page.locator("button:has-text('Confirm')")
+                if confirm.is_visible(timeout=500):
+                    confirm.click()
+                    self.logger.info("Shipping dialog confirmed (fallback)")
+                    self.page.wait_for_timeout(300)
+            else:
+                self.logger.info("Shipping dialog closed via Escape")
+
+        except Exception:
+            self.logger.debug("Shipping dialog check completed (not present or handled)")
+
+    def _dismiss_overlay_popup(self) -> None:
+        """Dismiss CAPTCHA / verification / promotional overlay popups.
+
+        eBay (especially in Firefox and certain regions) occasionally shows a
+        full-page overlay with a Google reCAPTCHA challenge or promotional
+        content.  The overlay has a visible close (X) button.  If left
+        unhandled, all subsequent clicks are intercepted by the overlay.
+        """
+        try:
+            close_selectors = [
+                "button[aria-label='Close']",
+                "button[aria-label='Close dialog']",
+                ".overlay-close",
+                "[data-testid='dialog-close-button']",
+                "button.fake-btn--close",
+                ".lightbox-dialog__close",
+                ".x-overlay-close button",
+            ]
+
+            for sel in close_selectors:
+                try:
+                    btn = self.page.locator(sel).first
+                    if btn.is_visible(timeout=500):
+                        btn.click()
+                        self.logger.info("Overlay popup closed via %s", sel)
+                        self.page.wait_for_timeout(300)
+                        return
+                except Exception:
+                    continue
+
+            iframes = self.page.frames
+            for frame in iframes:
+                if frame == self.page.main_frame:
+                    continue
+                try:
+                    close_btn = frame.locator("#close, .close, [aria-label='Close']").first
+                    if close_btn.is_visible(timeout=300):
+                        close_btn.click()
+                        self.logger.info("Overlay closed via iframe close button")
+                        self.page.wait_for_timeout(300)
+                        return
+                except Exception:
+                    continue
+
+            self.page.keyboard.press("Escape")
+            self.page.wait_for_timeout(300)
+
+        except Exception:
+            self.logger.debug("Overlay popup check completed (not present or handled)")

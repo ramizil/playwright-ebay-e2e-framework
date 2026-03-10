@@ -2,8 +2,7 @@
 Login Actions
 =============
 
-Business-level function that implements the task-spec requirement
-for **Identification (Login)**.  Orchestrates the LoginPage page object
+Business-level function for eBay sign-in. Orchestrates the LoginPage page object
 into a reusable sign-in action.
 
 Credentials are read from environment variables:
@@ -31,8 +30,6 @@ logger = get_logger(__name__)
 
 def login(page: Page) -> bool:
     """Sign in to eBay using credentials from environment variables.
-
-    Implements the task-spec function **Identification (Login)**.
 
     Flow:
         1. Read ``EBAY_USERNAME`` and ``EBAY_PASSWORD`` from env.

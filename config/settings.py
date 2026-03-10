@@ -170,6 +170,20 @@ class Settings:
         """Return a timestamped allure results path: ``allure-results/run_<id>``."""
         return os.path.join(self.allure_results, f"run_{self.run_id}")
 
+    @property
+    def reports_dir_for_run(self) -> Path:
+        """Return a per-run reports folder: ``reports/run_<id>/``."""
+        d = Path("reports") / f"run_{self.run_id}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    @property
+    def screenshots_dir_for_run(self) -> Path:
+        """Return a per-run screenshots folder: ``screenshots/run_<id>/``."""
+        d = Path("screenshots") / f"run_{self.run_id}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
 
 def load_settings() -> Settings:
     """Build a ``Settings`` instance from YAML config + environment overrides.

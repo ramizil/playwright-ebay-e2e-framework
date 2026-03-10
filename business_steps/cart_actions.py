@@ -2,12 +2,15 @@
 Cart Actions
 =============
 
-Business-level functions that implement the task-spec requirements
-``addItemsToCart`` and ``assertCartTotalNotExceeds``.  Orchestrates the
+Business-level functions for cart operations — adding items and validating totals.
+Orchestrates the
 Product Page and Cart Page objects into reusable actions.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional
 
 import allure
 from playwright.sync_api import Page
@@ -22,10 +25,8 @@ from core.logger_config import get_logger
 logger = get_logger(__name__)
 
 
-def add_items_to_cart(page: Page, urls: list[str]) -> int:
-    """Open each item URL and add it to the shopping cart.
-
-    Implements the task-spec function ``addItemsToCart``.
+def add_items_to_cart(page: Page, urls: list[str], screenshots_dir: Optional[Path] = None) -> int:
+    """    Open each item URL and add it to the shopping cart.
 
     For every URL:
         1. Navigate to the product page.
@@ -55,7 +56,8 @@ def add_items_to_cart(page: Page, urls: list[str]) -> int:
 
             success = product_page.add_to_cart()
             screenshot = capture_screenshot(
-                page, f"06_add_to_cart_item_{idx}", full_page=False
+                page, f"06_add_to_cart_item_{idx}", full_page=False,
+                output_dir=screenshots_dir,
             )
             status = "pass" if success else "warn"
             if success:
@@ -81,10 +83,9 @@ def assert_cart_total_not_exceeds(
     page: Page,
     budget_per_item: float,
     items_count: int,
+    screenshots_dir: Optional[Path] = None,
 ) -> None:
     """Open the cart and verify the total is within budget.
-
-    Implements the task-spec function ``assertCartTotalNotExceeds``.
 
     Args:
         page:            Playwright ``Page`` object.
@@ -97,7 +98,7 @@ def assert_cart_total_not_exceeds(
     collector.begin_step()
     cart = CartPage(page)
     cart.open_cart()
-    screenshot = capture_screenshot(page, "07_cart_page", full_page=False)
+    screenshot = capture_screenshot(page, "07_cart_page", full_page=False, output_dir=screenshots_dir)
     collector.add_step(
         "Open Shopping Cart", "CartPage.open_cart()", "pass",
         detail="Navigated to cart.ebay.com",
@@ -112,7 +113,7 @@ def assert_cart_total_not_exceeds(
     )
     try:
         cart.assert_cart_total_not_exceeds(budget_per_item, items_count)
-        screenshot = capture_screenshot(page, "08_cart_validation", full_page=False)
+        screenshot = capture_screenshot(page, "08_cart_validation", full_page=False, output_dir=screenshots_dir)
         collector.add_step(
             "Validate Cart Total",
             f"CartPage.assert_cart_total_not_exceeds(${budget_per_item:.2f}, {items_count})",
@@ -121,7 +122,7 @@ def assert_cart_total_not_exceeds(
             screenshot_path=screenshot,
         )
     except AssertionError:
-        screenshot = capture_screenshot(page, "08_cart_validation_FAIL", full_page=False)
+        screenshot = capture_screenshot(page, "08_cart_validation_FAIL", full_page=False, output_dir=screenshots_dir)
         collector.add_step(
             "Validate Cart Total",
             f"CartPage.assert_cart_total_not_exceeds(${budget_per_item:.2f}, {items_count})",

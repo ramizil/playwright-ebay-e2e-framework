@@ -484,6 +484,7 @@ td code {
     <a href="#pom">POM</a>
     <a href="#data-driven">Data-Driven</a>
     <a href="#flow">E2E Flow</a>
+    <a href="#run-methods">3 Ways to Run</a>
     <a href="#parallel">Parallel</a>
     <a href="#cicd">CI/CD</a>
     <a href="#runbook">Runbook</a>
@@ -503,19 +504,16 @@ td code {
     <span class="highlight">Automation Framework</span>
   </h1>
   <p class="lead">
-    A production-grade end-to-end test framework that automates eBay's shopping workflow — from
+    An end-to-end test framework that automates eBay's shopping workflow — from
     search and filtering to product selection and cart validation. Built with
     <strong>Python 3.12</strong>, <strong>Playwright</strong>, and <strong>pytest</strong>,
-    this framework showcases how to architect a maintainable, scalable, and resilient test suite
-    that teams can confidently run in CI/CD pipelines across multiple browsers.
+    designed to run reliably in CI/CD pipelines across Chromium, Firefox, and Edge.
   </p>
   <p style="color:var(--text-dim); max-width:680px; font-size:0.95rem; margin-bottom:2rem;">
-    The project implements a five-layer architecture — Tests, Pages, Core Engine, Utilities, and
-    Configuration — with clean separation of concerns so that each layer can evolve independently.
-    Smart locators with automatic fallback strategies ensure tests survive UI changes, while
-    exponential-backoff retry logic handles the flakiness inherent in real-world web applications.
-    Test data lives in external JSON files, so new scenarios can be added without touching a single
-    line of test code.
+    Five-layer architecture (Tests, Business Steps, Pages, Core, Config) where each layer only
+    talks to its neighbours. Smart locators carry multiple fallback strategies per element so
+    tests survive eBay's frequent UI changes. Retry with exponential backoff handles transient
+    failures. Test data lives in JSON — add scenarios without touching code.
   </p>
 
   <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; margin-bottom:2rem; max-width:960px;">
@@ -568,8 +566,7 @@ td code {
   <div class="fade-in">
     <div class="section-number">01 — Architecture</div>
     <h2>Layered Architecture</h2>
-    <p>Clean separation of concerns across five layers. Each layer has a single responsibility
-       and communicates only with its immediate neighbours.</p>
+    <p>Five layers, each with one job. Upper layers call lower layers, never the reverse.</p>
 
     <div class="arch-diagram">
       <div class="arch-layer">
@@ -578,7 +575,11 @@ td code {
       </div>
       <div class="arch-layer" style="background:rgba(63,185,80,.07);border-color:#3fb950;">
         <div class="arch-label">Tests</div>
-        <div class="arch-files"><strong>test_shopping_flow.py</strong> · <strong>test_smoke.py</strong> — Separate scenario files, data-driven with Allure steps</div>
+        <div class="arch-files"><strong>test_shopping_flow.py</strong> · <strong>test_smoke.py</strong> — Scenario files, data-driven with Allure steps</div>
+      </div>
+      <div class="arch-layer" style="background:rgba(244,114,182,.07);border-color:#f472b6;">
+        <div class="arch-label">Models</div>
+        <div class="arch-files"><strong>flow_state.py</strong> — ShoppingFlowState, SmokeFlowState dataclasses shared across test steps</div>
       </div>
       <div class="arch-layer">
         <div class="arch-label">Pages</div>
@@ -611,8 +612,8 @@ td code {
       </div>
       <div class="card">
         <span class="card-icon">📐</span>
-        <h3>Single Responsibility</h3>
-        <p>Each module does one thing: retry_handler handles retries, data_loader handles data, screenshot_manager handles captures.</p>
+        <h3>One Module, One Job</h3>
+        <p>retry_handler does retries, data_loader loads data, screenshot_manager captures. No module wears two hats.</p>
       </div>
     </div>
   </div>
@@ -624,7 +625,7 @@ td code {
 <section id="smart-locators">
   <div class="fade-in">
     <div class="section-number">02 — Smart Locators</div>
-    <h2>Resilient Element Location</h2>
+    <h2>Multi-Strategy Locators</h2>
     <p>Every UI element is defined with <strong>at least 2 locator strategies</strong>.
        When the primary fails (DOM change, A/B test, layout shift), the framework
        automatically falls back — keeping tests green without manual fixes.</p>
@@ -761,7 +762,7 @@ td code {
       </tbody>
     </table>
 
-    <div class="cards" style="grid-template-columns: 1fr 1fr; margin-top: 1.5rem;">
+    <div class="cards" style="grid-template-columns: 1fr 1fr 1fr; margin-top: 1.5rem;">
       <div class="card">
         <span class="card-icon">🔄</span>
         <h3>Decorator Form</h3>
@@ -771,6 +772,11 @@ td code {
         <span class="card-icon">🎯</span>
         <h3>Inline Form</h3>
         <p><code>retry_call(func, ...)</code> for one-off retries without decorating the function.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🛡️</span>
+        <h3>Overlay Dismissal</h3>
+        <p>Between retries, the framework detects and dismisses CAPTCHA/verification overlays, shipping dialogs, and promotional popups.</p>
       </div>
     </div>
   </div>
@@ -850,12 +856,18 @@ td code {
     </div>
 
     <div class="code-block" data-lang="Python">
-<code><span class="cm"># Tests are parametrised automatically from the JSON</span>
-<span class="dec">@pytest.mark.parametrize</span>(<span class="str">"scenario"</span>, _scenarios, ids=_scenario_ids)
-<span class="kw">def</span> <span class="fn">test_ebay_shopping_flow</span>(page, test_settings, scenario):
-    query = scenario[<span class="str">"query"</span>]
-    max_price = scenario[<span class="str">"max_price"</span>]
-    <span class="cm"># ... full E2E flow</span></code>
+<code><span class="cm"># Test CLASS is parametrised — each scenario runs all steps</span>
+<span class="dec">@pytest.mark.parametrize</span>(<span class="str">"scenario_data"</span>, _scenarios, indirect=<span class="kw">True</span>, ids=_ids)
+<span class="kw">class</span> <span class="cls">TestEbayShoppingFlow</span>:
+    <span class="kw">def</span> <span class="fn">test_step_00_login</span>(self): ...
+    <span class="kw">def</span> <span class="fn">test_step_01_search_and_collect</span>(self): ...
+    <span class="kw">def</span> <span class="fn">test_step_02_add_to_cart</span>(self): ...
+    <span class="kw">def</span> <span class="fn">test_step_03_validate_cart</span>(self): ...
+
+<span class="cm"># pytest discovers 4 steps × N scenarios:</span>
+<span class="cm">#   test_step_00_login[headphones_under_50]</span>
+<span class="cm">#   test_step_01_search_and_collect[headphones_under_50]</span>
+<span class="cm">#   ...</span></code>
     </div>
 
     <div class="cards" style="grid-template-columns: 1fr 1fr;">
@@ -879,35 +891,108 @@ td code {
 <section id="flow">
   <div class="fade-in">
     <div class="section-number">06 — E2E Flow</div>
-    <h2>Shopping Scenario</h2>
-    <p>The three core functions from the task specification, orchestrated into a single test flow.</p>
+    <h2>TestNG-Style Test Classes</h2>
+    <p>Inspired by <strong>Java/TestNG</strong>, each test flow is a Python class where every step is a separate method.
+       If a step fails, all dependent steps are automatically <strong>skipped</strong> — like <code>dependsOnMethods</code>.
+       Shared state (URLs, cart count) flows through a <code>FlowState</code> dataclass.</p>
 
     <div class="flow">
-      <div class="flow-step">🏠 Open eBay</div>
+      <div class="flow-step" style="border-left:3px solid var(--green);">Step 0 — Login</div>
       <span class="flow-arrow">→</span>
-      <div class="flow-step">🔍 Search</div>
+      <div class="flow-step" style="border-left:3px solid var(--accent);">Step 1 — Search &amp; Collect</div>
       <span class="flow-arrow">→</span>
-      <div class="flow-step">💰 Price Filter</div>
+      <div class="flow-step" style="border-left:3px solid var(--purple);">Step 2 — Add to Cart</div>
       <span class="flow-arrow">→</span>
-      <div class="flow-step">📄 Collect URLs</div>
-      <span class="flow-arrow">→</span>
-      <div class="flow-step">📦 Add to Cart</div>
-      <span class="flow-arrow">→</span>
-      <div class="flow-step">🛒 Validate Total</div>
+      <div class="flow-step" style="border-left:3px solid var(--orange);">Step 3 — Validate Cart</div>
+    </div>
+
+    <div class="code-block" data-lang="Python">
+<code><span class="dec">@pytest.mark.parametrize</span>(<span class="str">"scenario_data"</span>, _scenarios, indirect=<span class="kw">True</span>)
+<span class="kw">class</span> <span class="cls">TestEbayShoppingFlow</span>:
+
+    <span class="dec">@pytest.fixture</span>(autouse=<span class="kw">True</span>, scope=<span class="str">"class"</span>)          <span class="cm"># ≈ @BeforeClass</span>
+    <span class="kw">def</span> <span class="fn">setup_flow</span>(self, request, class_page, test_settings, scenario_data):
+        request.cls.page     = class_page
+        request.cls.settings = test_settings
+        request.cls.scenario = scenario_data
+        request.cls.state    = <span class="fn">FlowState</span>()
+
+    <span class="kw">def</span> <span class="fn">test_step_00_login</span>(self):               <span class="cm"># priority=0</span>
+        <span class="fn">login</span>(self.page)
+
+    <span class="kw">def</span> <span class="fn">test_step_01_search_and_collect</span>(self):  <span class="cm"># priority=1, depends=login</span>
+        self.state.urls = <span class="fn">search_items_by_name_under_price</span>(...)
+
+    <span class="kw">def</span> <span class="fn">test_step_02_add_to_cart</span>(self):         <span class="cm"># priority=2, depends=search</span>
+        self.state.added_count = <span class="fn">add_items_to_cart</span>(...)
+
+    <span class="kw">def</span> <span class="fn">test_step_03_validate_cart</span>(self):       <span class="cm"># priority=3, depends=add_to_cart</span>
+        <span class="fn">assert_cart_total_not_exceeds</span>(...)</code>
     </div>
 
     <div class="cards">
       <div class="card">
-        <h3>searchItemsByNameUnderPrice</h3>
-        <p>Search eBay → filter "Buy It Now" → apply price range → iterate results → paginate if needed → return up to <em>limit</em> URLs.</p>
+        <span class="card-icon">🔗</span>
+        <h3>Step Dependencies</h3>
+        <p>If <code>test_step_01</code> fails, steps 02 and 03 are automatically <strong>skipped</strong> — the <code>pytest_runtest_setup</code> hook checks <code>_failed_class_nodes</code>.</p>
       </div>
       <div class="card">
-        <h3>addItemsToCart</h3>
-        <p>Open each URL → detect required variants → select random size/colour → click "Add to Cart" → screenshot confirmation.</p>
+        <span class="card-icon">📋</span>
+        <h3>Shared State</h3>
+        <p>A <code>FlowState</code> dataclass holds mutable data (URLs, counts) on <code>self.state</code> — accessible across all step methods like Java instance fields.</p>
       </div>
       <div class="card">
-        <h3>assertCartTotalNotExceeds</h3>
-        <p>Navigate to cart → read subtotal → calculate budget × count → assert total ≤ threshold → attach evidence.</p>
+        <span class="card-icon">🧪</span>
+        <h3>Class-scoped Page</h3>
+        <p>All steps share one <code>class_page</code> — cart contents, cookies, and login state persist across steps, just like a TestNG test class.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SLIDE 7b: 3 Ways to Run -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<section id="run-methods">
+  <div class="fade-in">
+    <div class="section-number">07 — Running Tests</div>
+    <h2>3 Ways to Run</h2>
+    <p>Choose the method that fits your workflow — all three are fully supported.</p>
+
+    <div class="cards">
+      <div class="card">
+        <span class="card-icon">⌨️</span>
+        <h3>Command Line</h3>
+        <p>Maximum flexibility. Run from any terminal using <code>pytest</code> directly with environment variables for browser, headless mode, and markers.</p>
+        <div class="cmd"><span class="prompt">$</span> pytest tests/ -v -m smoke</div>
+        <div class="cmd"><span class="prompt">$</span> $env:EBAY_BROWSER="msedge"; pytest tests/ -v -m e2e</div>
+        <div class="cmd"><span class="prompt">$</span> pytest tests/ -v -n auto --dist=loadfile</div>
+        <p style="margin-top:0.8rem; font-size:0.82rem;"><strong>Best for:</strong> CI/CD pipelines, power users, full control over flags and parallel workers.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🖥️</span>
+        <h3>eBay E2E Test Runner (GUI)</h3>
+        <p>A built-in web dashboard at <code>localhost:5000</code>. Select scenarios, pick a browser, toggle headless, and watch the live log stream with a visual step tracker.</p>
+        <div class="cmd"><span class="prompt">$</span> python gui/app.py</div>
+        <table style="margin-top:0.8rem; font-size:0.82rem;">
+          <tr><td style="border:none; padding:0.3rem 0.6rem;"><strong>Scenario selector</strong></td><td style="border:none; padding:0.3rem 0.6rem; color:var(--text-dim);">Pick which data-driven scenarios to run</td></tr>
+          <tr><td style="border:none; padding:0.3rem 0.6rem;"><strong>Browser chooser</strong></td><td style="border:none; padding:0.3rem 0.6rem; color:var(--text-dim);">Chromium, Chrome, Firefox, Edge, WebKit</td></tr>
+          <tr><td style="border:none; padding:0.3rem 0.6rem;"><strong>Live test flow</strong></td><td style="border:none; padding:0.3rem 0.6rem; color:var(--text-dim);">Real-time step-by-step visual tracker</td></tr>
+          <tr><td style="border:none; padding:0.3rem 0.6rem;"><strong>HTML report</strong></td><td style="border:none; padding:0.3rem 0.6rem; color:var(--text-dim);">Generated automatically at the end</td></tr>
+        </table>
+        <p style="margin-top:0.8rem; font-size:0.82rem;"><strong>Best for:</strong> Demos, manual exploratory runs, visual monitoring of test progress.</p>
+      </div>
+      <div class="card">
+        <span class="card-icon">🧩</span>
+        <h3>PyCharm IDE</h3>
+        <p>Run tests with full IDE support — breakpoints, variable inspection, and visual test results in the Test Runner panel.</p>
+        <table style="margin-top:0.8rem; font-size:0.82rem;">
+          <tr><td style="border:none; padding:0.3rem 0.6rem;"><strong>Run a class</strong></td><td style="border:none; padding:0.3rem 0.6rem; color:var(--text-dim);">Click ▶ next to <code>class TestEbayShoppingFlow</code></td></tr>
+          <tr><td style="border:none; padding:0.3rem 0.6rem;"><strong>Run a single step</strong></td><td style="border:none; padding:0.3rem 0.6rem; color:var(--text-dim);">Click ▶ next to <code>def test_step_01_search</code></td></tr>
+          <tr><td style="border:none; padding:0.3rem 0.6rem;"><strong>Debug</strong></td><td style="border:none; padding:0.3rem 0.6rem; color:var(--text-dim);">Set breakpoint → right-click → Debug</td></tr>
+          <tr><td style="border:none; padding:0.3rem 0.6rem;"><strong>Env vars</strong></td><td style="border:none; padding:0.3rem 0.6rem; color:var(--text-dim);">Run → Edit Configurations → Environment</td></tr>
+        </table>
+        <p style="margin-top:0.8rem; font-size:0.82rem;"><strong>Best for:</strong> Development, debugging failures, stepping through test code with breakpoints.</p>
       </div>
     </div>
   </div>
@@ -918,7 +1003,7 @@ td code {
 <!-- ═══════════════════════════════════════════════════════════ -->
 <section id="parallel">
   <div class="fade-in">
-    <div class="section-number">07 — Parallel Execution</div>
+    <div class="section-number">08 — Parallel Execution</div>
     <h2>Speed at Scale</h2>
     <p>Two strategies for parallel execution — choose based on your environment.</p>
 
@@ -1006,6 +1091,20 @@ browser_type.<span class="fn">launch</span>(channel=profile.channel, headless=<s
         <tr><td>GitHub Actions</td><td><code>gh_&lt;run_id&gt;_&lt;attempt&gt;</code></td><td><code>allure-results/chromium/run_gh_12345678_1/</code></td></tr>
       </tbody>
     </table>
+
+    <h3 style="margin-top: 2rem;">HTML Reports &amp; Screenshots (Per-Run)</h3>
+    <p>In addition to Allure, the framework generates self-contained <strong>HTML reports</strong> and organises
+       <strong>screenshots</strong> into per-run folders — no previous run data is ever overwritten.</p>
+    <div class="code-block" data-lang="File Tree">
+<code>reports/
+├── run_20260310_133737/
+│   ├── headphones_under_50_20260310_133900.html
+│   └── summary_20260310_133737.html
+screenshots/
+├── run_20260310_133737/
+│   ├── smoke_01_home_20260310_133756.png
+│   └── FAILURE_test_step_02_1710012345.png</code>
+    </div>
   </div>
 </section>
 
@@ -1014,7 +1113,7 @@ browser_type.<span class="fn">launch</span>(channel=profile.channel, headless=<s
 <!-- ═══════════════════════════════════════════════════════════ -->
 <section id="cicd">
   <div class="fade-in">
-    <div class="section-number">08 — CI/CD Pipeline</div>
+    <div class="section-number">09 — CI/CD Pipeline</div>
     <h2>GitHub Actions</h2>
     <p>Automated on every push/PR.  Matrix strategy runs Chromium, Firefox, and Edge in parallel.
        Each job gets a unique run ID.  Results are merged into a single Allure report and deployed to GitHub Pages.</p>
@@ -1073,7 +1172,7 @@ browser_type.<span class="fn">launch</span>(channel=profile.channel, headless=<s
 <!-- ═══════════════════════════════════════════════════════════ -->
 <section id="runbook">
   <div class="fade-in">
-    <div class="section-number">09 — Runbook</div>
+    <div class="section-number">10 — Runbook</div>
     <h2>How to Run</h2>
 
     <h3>Setup</h3>

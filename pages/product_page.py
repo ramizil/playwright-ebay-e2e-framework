@@ -129,7 +129,7 @@ class ProductPage(BasePage):
         2. Checks if colour buttons are present -> clicks a random one.
         3. Sets a random quantity (1-MAX_RANDOM_QUANTITY) if the input exists.
 
-        The selection is random (per the task spec) to exercise different
+        The selection is random to exercise different
         paths on each run.
         """
         self._select_size_if_present()
