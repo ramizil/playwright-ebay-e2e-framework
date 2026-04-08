@@ -848,14 +848,26 @@ def generate_run_summary(
     records: List[ScenarioRecord],
     output_dir: Optional[str | Path] = None,
     run_id: str = "",
+    worker_id: str = "",
 ) -> str:
-    """Generate a summary HTML report for all scenarios in a test run."""
+    """Generate a summary HTML report for all scenarios in a test run.
+
+    Args:
+        records:    Completed scenario records to include.
+        output_dir: Target directory for the report file.
+        run_id:     Unique run identifier.
+        worker_id:  If set (e.g. ``'gw0'``), generates a per-worker report
+                    instead of the overall summary.
+    """
     out = Path(output_dir) if output_dir else REPORTS_DIR
     out.mkdir(parents=True, exist_ok=True)
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     rid = run_id or timestamp
-    filename = f"summary_{rid}.html"
+    if worker_id:
+        filename = f"worker_{worker_id}_{rid}.html"
+    else:
+        filename = f"summary_{rid}.html"
     filepath = out / filename
 
     total_scenarios = len(records)
@@ -885,7 +897,7 @@ def generate_run_summary(
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Test Run Summary \u2014 {html_mod.escape(rid)}</title>
+<title>{'Worker ' + html_mod.escape(worker_id) + ' Report' if worker_id else 'Test Run Summary'} \u2014 {html_mod.escape(rid)}</title>
 <style>{_CSS}</style>
 </head>
 <body>
@@ -899,8 +911,8 @@ def generate_run_summary(
             {pass_rate}%
         </div>
         <div>
-            <h1>eBay E2E Test Run Summary</h1>
-            <div class="sub">{time.strftime("%Y/%m/%d %H:%M:%S")} &middot; Run ID: {html_mod.escape(rid)} &middot; {total_scenarios} scenarios &middot; {total_steps} steps &middot; {total_subs} actions</div>
+            <h1>{'Worker ' + html_mod.escape(worker_id).upper() + ' Report' if worker_id else 'eBay E2E Test Run Summary'}</h1>
+            <div class="sub">{time.strftime("%Y/%m/%d %H:%M:%S")} &middot; {'Worker: ' + html_mod.escape(worker_id) + ' &middot; ' if worker_id else ''}Run ID: {html_mod.escape(rid)} &middot; {total_scenarios} scenarios &middot; {total_steps} steps &middot; {total_subs} actions</div>
         </div>
         <div class="toolbar">
             <button onclick="expandAll()">Expand All</button>

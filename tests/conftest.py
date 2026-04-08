@@ -208,7 +208,10 @@ def context(
         logger.debug("Tracing started for test context")
 
     yield ctx
-    ctx.close()
+    try:
+        ctx.close()
+    except Exception:
+        pass
     logger.debug("Browser context closed")
 
 
@@ -218,7 +221,10 @@ def page(context: BrowserContext) -> Generator[Page, None, None]:
     pg = context.new_page()
     logger.info("New page opened")
     yield pg
-    pg.close()
+    try:
+        pg.close()
+    except Exception:
+        pass
 
 
 # --- Class-scoped: shared context + page for multi-step flow tests ---
@@ -239,7 +245,10 @@ def class_context(
         ctx.tracing.start(screenshots=True, snapshots=True)
 
     yield ctx
-    ctx.close()
+    try:
+        ctx.close()
+    except Exception:
+        pass
     logger.debug("Class-scoped browser context closed")
 
 
@@ -249,7 +258,10 @@ def class_page(class_context: BrowserContext) -> Generator[Page, None, None]:
     pg = class_context.new_page()
     logger.info("New class-scoped page opened")
     yield pg
-    pg.close()
+    try:
+        pg.close()
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="class")
@@ -387,16 +399,35 @@ def _generate_html_report_for_completed_scenario() -> None:
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Generate a run-level summary report when multiple scenarios ran."""
+    """Generate run-level and worker-level summary reports.
+
+    When running under pytest-xdist, each worker generates its own report
+    listing the scenarios it executed.  The overall summary is only written
+    by the controller (non-worker) process when 2+ scenarios completed.
+    """
     completed = collector.completed
-    if len(completed) < 2:
+    if not completed:
         return
+
     try:
         settings = load_settings()
-        path = generate_run_summary(
-            completed, output_dir=settings.reports_dir_for_run, run_id=settings.run_id,
-        )
-        logger.info("HTML summary report generated: %s", path)
+        worker_id = os.environ.get("PYTEST_XDIST_WORKER", "")
+
+        if worker_id:
+            path = generate_run_summary(
+                completed,
+                output_dir=settings.reports_dir_for_run,
+                run_id=settings.run_id,
+                worker_id=worker_id,
+            )
+            logger.info("Worker %s report generated: %s", worker_id, path)
+        elif len(completed) >= 2:
+            path = generate_run_summary(
+                completed,
+                output_dir=settings.reports_dir_for_run,
+                run_id=settings.run_id,
+            )
+            logger.info("HTML summary report generated: %s", path)
     except Exception as exc:
         logger.warning("Failed to generate summary report: %s", exc)
 

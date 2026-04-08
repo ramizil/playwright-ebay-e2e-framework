@@ -10,6 +10,8 @@ addopts = [
     "--tb=short",
     "--strict-markers",
     "-v",
+    "--dist=loadscope",
+    "--alluredir=allure-results",
 ]
 markers = [
     "smoke: Quick sanity checks",

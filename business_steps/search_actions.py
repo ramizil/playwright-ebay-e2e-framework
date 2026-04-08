@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+import pytest
 from playwright.sync_api import Page
 
 from pages.home_page import HomePage
@@ -108,6 +109,13 @@ def search_items_by_name_under_price(
         screenshot_path=screenshot,
     )
     collector.set_items(found=len(urls))
+
+    if not urls:
+        collector.add_step(
+            "No Items Found", "search_items_by_name_under_price()", "skip",
+            detail=f"No items found for '{query}' under ${max_price}",
+        )
+        pytest.skip(f"No items found for '{query}' under ${max_price}")
 
     logger.info("searchItemsByNameUnderPrice returned %d URLs", len(urls))
     return urls

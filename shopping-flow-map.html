@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shopping Flow — Dependency &amp; Inheritance Map</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface-2: #22252f;
+  --border: #2e3240;
+  --text: #e4e6ed;
+  --text-dim: #9ba1b0;
+  --text-muted: #6b7185;
+  --blue: #6c8cff;
+  --green: #4ade80;
+  --orange: #fb923c;
+  --purple: #a78bfa;
+  --cyan: #22d3ee;
+  --pink: #f472b6;
+  --red: #f87171;
+  --yellow: #facc15;
+  --teal: #2dd4bf;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'DM Sans', system-ui, sans-serif;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--sans); background:var(--bg); color:var(--text); line-height:1.6; font-size:14px; padding:32px; }
+
+h1 { font-size:1.8rem; font-weight:700; margin-bottom:6px;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.subtitle { color:var(--text-dim); margin-bottom:32px; font-size:0.95rem; }
+
+h2 { font-size:1.15rem; font-weight:700; color:var(--text); margin:40px 0 16px;
+  padding-bottom:8px; border-bottom:1px solid var(--border); }
+
+.legend { display:flex; flex-wrap:wrap; gap:16px; margin-bottom:32px; }
+.legend-item { display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--text-dim); }
+.legend-line { width:32px; height:3px; border-radius:2px; }
+
+.diagram { position:relative; overflow-x:auto; padding:20px 0; }
+svg { display:block; margin:0 auto; }
+svg text { font-family:var(--mono); }
+
+.card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 22px; margin-bottom:14px; }
+
+.method-chain { display:flex; flex-wrap:wrap; align-items:center; gap:0; margin:12px 0; }
+.mc-box { background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:8px 14px; font-family:var(--mono); font-size:0.78rem; white-space:nowrap; }
+.mc-arrow { color:var(--text-muted); padding:0 4px; font-size:1.1rem; }
+.mc-file { font-size:0.65rem; color:var(--text-muted); display:block; font-family:var(--sans); margin-top:2px; }
+.mc-box.test { border-left:3px solid var(--green); }
+.mc-box.page { border-left:3px solid var(--blue); }
+.mc-box.base { border-left:3px solid var(--orange); }
+.mc-box.core { border-left:3px solid var(--purple); }
+.mc-box.util { border-left:3px solid var(--cyan); }
+.mc-box.model { border-left:3px solid var(--pink); }
+.mc-box.fixture { border-left:3px solid var(--yellow); }
+.mc-box.biz { border-left:3px solid var(--teal); }
+
+.step-label { font-size:0.75rem; font-weight:700; color:var(--green); font-family:var(--mono); margin:20px 0 6px; letter-spacing:0.5px; }
+.dep-label { font-size:0.75rem; font-weight:700; color:var(--yellow); font-family:var(--mono); margin:20px 0 6px; letter-spacing:0.5px; }
+.phase-label { font-size:0.7rem; font-weight:600; color:var(--teal); font-family:var(--mono); margin:14px 0 4px; letter-spacing:0.4px; }
+
+table { width:100%; border-collapse:collapse; margin:12px 0; font-size:0.82rem; }
+th { text-align:left; padding:8px 12px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; }
+td { padding:8px 12px; border:1px solid var(--border); color:var(--text-dim); vertical-align:top; }
+td code { font-family:var(--mono); font-size:0.78rem; color:var(--cyan); background:var(--surface-2); padding:1px 5px; border-radius:3px; }
+
+.tag { display:inline-block; font-size:0.65rem; font-weight:600; padding:1px 6px; border-radius:3px; font-family:var(--mono); }
+.tag-green { background:rgba(74,222,128,0.12); color:var(--green); }
+.tag-blue { background:rgba(108,140,255,0.12); color:var(--blue); }
+.tag-orange { background:rgba(251,146,60,0.12); color:var(--orange); }
+.tag-purple { background:rgba(167,139,250,0.12); color:var(--purple); }
+.tag-cyan { background:rgba(34,211,238,0.12); color:var(--cyan); }
+.tag-pink { background:rgba(244,114,182,0.12); color:var(--pink); }
+.tag-yellow { background:rgba(250,204,21,0.12); color:var(--yellow); }
+.tag-teal { background:rgba(45,212,191,0.12); color:var(--teal); }
+
+@media print {
+  body { background:#fff; color:#1a1a1a; }
+  .card { background:#f8f8f8; border-color:#ddd; }
+  h1 { -webkit-text-fill-color:#2563eb; }
+}
+</style>
+</head>
+<body>
+
+<h1>Shopping Flow — Dependency &amp; Inheritance Map</h1>
+<p class="subtitle">Visual map of every class, fixture, business step, and method call involved when <code>pytest tests/test_shopping_flow.py</code> runs.</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-line" style="background:var(--green);"></div> Test Layer</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--teal);"></div> Business Steps</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--blue);"></div> Page Objects</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--orange);"></div> BasePage (Core)</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--purple);"></div> SmartLocator / Retry</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--yellow);"></div> Fixtures (conftest)</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--cyan);"></div> Utilities</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--pink);"></div> Models / DTOs</div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 1. CLASS INHERITANCE -->
+<!-- ============================================================ -->
+<h2>1. Class Inheritance</h2>
+
+<div class="diagram">
+<svg width="920" height="480" viewBox="0 0 920 480">
+  <!-- BasePage -->
+  <rect x="350" y="20" width="220" height="64" rx="10" fill="#1a1d27" stroke="#fb923c" stroke-width="2"/>
+  <text x="460" y="46" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="700">CORE</text>
+  <text x="460" y="66" text-anchor="middle" fill="#e4e6ed" font-size="13" font-weight="600">BasePage</text>
+
+  <!-- Inheritance arrows -->
+  <line x1="370" y1="84" x2="110" y2="150" stroke="#4a5568" stroke-width="2" stroke-dasharray="6,4"/>
+  <line x1="420" y1="84" x2="345" y2="150" stroke="#4a5568" stroke-width="2" stroke-dasharray="6,4"/>
+  <line x1="500" y1="84" x2="575" y2="150" stroke="#4a5568" stroke-width="2" stroke-dasharray="6,4"/>
+  <line x1="550" y1="84" x2="810" y2="150" stroke="#4a5568" stroke-width="2" stroke-dasharray="6,4"/>
+  <polygon points="110,150 118,142 104,142" fill="#4a5568"/>
+  <polygon points="345,150 353,142 339,142" fill="#4a5568"/>
+  <polygon points="575,150 583,142 569,142" fill="#4a5568"/>
+  <polygon points="810,150 818,142 804,142" fill="#4a5568"/>
+  <text x="220" y="112" fill="#6b7185" font-size="9">extends</text>
+  <text x="375" y="118" fill="#6b7185" font-size="9">extends</text>
+  <text x="525" y="118" fill="#6b7185" font-size="9">extends</text>
+  <text x="700" y="112" fill="#6b7185" font-size="9">extends</text>
+
+  <!-- HomePage -->
+  <rect x="0" y="150" width="220" height="64" rx="10" fill="#1a1d27" stroke="#6c8cff" stroke-width="2"/>
+  <text x="110" y="176" text-anchor="middle" fill="#6c8cff" font-size="11" font-weight="700">PAGE</text>
+  <text x="110" y="196" text-anchor="middle" fill="#e4e6ed" font-size="13" font-weight="600">HomePage</text>
+
+  <!-- SearchResultsPage -->
+  <rect x="235" y="150" width="220" height="64" rx="10" fill="#1a1d27" stroke="#6c8cff" stroke-width="2"/>
+  <text x="345" y="176" text-anchor="middle" fill="#6c8cff" font-size="11" font-weight="700">PAGE</text>
+  <text x="345" y="196" text-anchor="middle" fill="#e4e6ed" font-size="12" font-weight="600">SearchResultsPage</text>
+
+  <!-- ProductPage -->
+  <rect x="470" y="150" width="220" height="64" rx="10" fill="#1a1d27" stroke="#6c8cff" stroke-width="2"/>
+  <text x="580" y="176" text-anchor="middle" fill="#6c8cff" font-size="11" font-weight="700">PAGE</text>
+  <text x="580" y="196" text-anchor="middle" fill="#e4e6ed" font-size="13" font-weight="600">ProductPage</text>
+
+  <!-- CartPage -->
+  <rect x="700" y="150" width="220" height="64" rx="10" fill="#1a1d27" stroke="#6c8cff" stroke-width="2"/>
+  <text x="810" y="176" text-anchor="middle" fill="#6c8cff" font-size="11" font-weight="700">PAGE</text>
+  <text x="810" y="196" text-anchor="middle" fill="#e4e6ed" font-size="13" font-weight="600">CartPage</text>
+
+  <!-- SmartLocator composition labels -->
+  <text x="110" y="234" text-anchor="middle" fill="#6b7185" font-size="9" font-style="italic">SEARCH_INPUT, SEARCH_BUTTON</text>
+  <text x="345" y="234" text-anchor="middle" fill="#6b7185" font-size="9" font-style="italic">RESULT_ITEMS, NEXT_PAGE, ...</text>
+  <text x="580" y="234" text-anchor="middle" fill="#6b7185" font-size="9" font-style="italic">ADD_TO_CART, SIZE, COLOR, QTY</text>
+  <text x="810" y="234" text-anchor="middle" fill="#6b7185" font-size="9" font-style="italic">SUBTOTAL, ITEM_COUNT, EMPTY</text>
+
+  <!-- SmartLocator boxes -->
+  <rect x="160" y="260" width="180" height="48" rx="10" fill="#1a1d27" stroke="#a78bfa" stroke-width="2"/>
+  <text x="250" y="280" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">CORE</text>
+  <text x="250" y="296" text-anchor="middle" fill="#e4e6ed" font-size="11">SmartLocator</text>
+
+  <rect x="580" y="260" width="180" height="48" rx="10" fill="#1a1d27" stroke="#a78bfa" stroke-width="2"/>
+  <text x="670" y="280" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">CORE</text>
+  <text x="670" y="296" text-anchor="middle" fill="#e4e6ed" font-size="11">SmartLocator</text>
+
+  <line x1="180" y1="214" x2="220" y2="260" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="410" y1="214" x2="290" y2="260" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="580" y1="214" x2="630" y2="260" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <line x1="810" y1="214" x2="710" y2="260" stroke="#4a5568" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="195" y="250" fill="#6b7185" font-size="8">has 2</text>
+  <text x="365" y="250" fill="#6b7185" font-size="8">has 6</text>
+  <text x="595" y="250" fill="#6b7185" font-size="8">has 7</text>
+  <text x="765" y="250" fill="#6b7185" font-size="8">has 5</text>
+
+  <!-- LocatorStrategy -->
+  <rect x="350" y="340" width="220" height="48" rx="10" fill="#1a1d27" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="460" y="360" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">CORE</text>
+  <text x="460" y="376" text-anchor="middle" fill="#e4e6ed" font-size="11">LocatorStrategy</text>
+
+  <line x1="250" y1="308" x2="410" y2="340" stroke="#4a5568" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="670" y1="308" x2="510" y2="340" stroke="#4a5568" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="460" y="330" text-anchor="middle" fill="#6b7185" font-size="9">contains &ge; 2 each</text>
+
+  <!-- BasePage methods -->
+  <text x="460" y="104" text-anchor="middle" fill="#6b7185" font-size="9">find_element() &middot; click() &middot; fill() &middot; type_text()</text>
+  <text x="460" y="118" text-anchor="middle" fill="#6b7185" font-size="9">navigate() &middot; take_screenshot() &middot; accept_cookies()</text>
+
+  <!-- Business Steps layer -->
+  <rect x="120" y="410" width="680" height="52" rx="10" fill="#1a1d27" stroke="#2dd4bf" stroke-width="2"/>
+  <text x="460" y="432" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="700">BUSINESS STEPS LAYER</text>
+  <text x="460" y="450" text-anchor="middle" fill="#e4e6ed" font-size="10">login() &middot; search_items_by_name_under_price() &middot; add_items_to_cart() &middot; assert_cart_total_not_exceeds()</text>
+</svg>
+</div>
+
+<div class="card">
+  <table>
+    <tr><th>Class</th><th>File</th><th>Inherits</th><th>Role in Shopping Flow</th></tr>
+    <tr>
+      <td><code>TestEbayShoppingFlow</code></td>
+      <td><code>tests/test_shopping_flow.py</code></td>
+      <td>&mdash;</td>
+      <td>Test class with 4 step methods, parametrised by search_data.json</td>
+    </tr>
+    <tr>
+      <td><code>HomePage</code></td>
+      <td><code>pages/home_page.py</code></td>
+      <td><code>BasePage</code></td>
+      <td>open(), search() &mdash; used in Step 1</td>
+    </tr>
+    <tr>
+      <td><code>SearchResultsPage</code></td>
+      <td><code>pages/search_results_page.py</code></td>
+      <td><code>BasePage</code></td>
+      <td>filter_buy_it_now(), apply_price_filter(), collect_items_under_price() &mdash; Step 1</td>
+    </tr>
+    <tr>
+      <td><code>ProductPage</code></td>
+      <td><code>pages/product_page.py</code></td>
+      <td><code>BasePage</code></td>
+      <td>select_random_variants(), add_to_cart() &mdash; Step 2</td>
+    </tr>
+    <tr>
+      <td><code>CartPage</code></td>
+      <td><code>pages/cart_page.py</code></td>
+      <td><code>BasePage</code></td>
+      <td>open_cart(), get_subtotal(), assert_cart_total_not_exceeds() &mdash; Step 3</td>
+    </tr>
+    <tr>
+      <td><code>BasePage</code></td>
+      <td><code>core/base_page.py</code></td>
+      <td>&mdash;</td>
+      <td>find_element(), type_text(), navigate(), _check_for_captcha()</td>
+    </tr>
+    <tr>
+      <td><code>SmartLocator</code></td>
+      <td><code>core/smart_locator.py</code></td>
+      <td>&mdash;</td>
+      <td>Holds 2+ strategies per element (CSS + XPath)</td>
+    </tr>
+    <tr>
+      <td><code>ShoppingFlowState</code></td>
+      <td><code>models/flow_state.py</code></td>
+      <td>&mdash;</td>
+      <td>Carries <code>urls</code>, <code>added_count</code> between steps via <code>self.state</code></td>
+    </tr>
+  </table>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 2. ARCHITECTURE LAYERS -->
+<!-- ============================================================ -->
+<h2>2. Architecture Layers</h2>
+
+<div class="diagram">
+<svg width="780" height="330" viewBox="0 0 780 330">
+  <!-- Test Layer -->
+  <rect x="40" y="10" width="700" height="54" rx="10" fill="#1a1d27" stroke="#4ade80" stroke-width="2"/>
+  <text x="390" y="32" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="700">TEST LAYER</text>
+  <text x="390" y="50" text-anchor="middle" fill="#e4e6ed" font-size="10">TestEbayShoppingFlow &mdash; test_step_00 &middot; test_step_01 &middot; test_step_02 &middot; test_step_03</text>
+
+  <!-- Arrow -->
+  <line x1="390" y1="64" x2="390" y2="80" stroke="#4a5568" stroke-width="1.5"/>
+  <polygon points="390,80 385,74 395,74" fill="#4a5568"/>
+  <text x="410" y="76" fill="#6b7185" font-size="8">calls</text>
+
+  <!-- Business Steps Layer -->
+  <rect x="40" y="82" width="700" height="54" rx="10" fill="#1a1d27" stroke="#2dd4bf" stroke-width="2"/>
+  <text x="390" y="104" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="700">BUSINESS STEPS LAYER</text>
+  <text x="390" y="122" text-anchor="middle" fill="#e4e6ed" font-size="10">login() &middot; search_items_by_name_under_price() &middot; add_items_to_cart() &middot; assert_cart_total_not_exceeds()</text>
+
+  <!-- Arrow -->
+  <line x1="390" y1="136" x2="390" y2="152" stroke="#4a5568" stroke-width="1.5"/>
+  <polygon points="390,152 385,146 395,146" fill="#4a5568"/>
+  <text x="410" y="148" fill="#6b7185" font-size="8">orchestrates</text>
+
+  <!-- Page Objects Layer -->
+  <rect x="40" y="154" width="700" height="54" rx="10" fill="#1a1d27" stroke="#6c8cff" stroke-width="2"/>
+  <text x="390" y="176" text-anchor="middle" fill="#6c8cff" font-size="11" font-weight="700">PAGE OBJECTS LAYER</text>
+  <text x="390" y="194" text-anchor="middle" fill="#e4e6ed" font-size="10">HomePage &middot; SearchResultsPage &middot; ProductPage &middot; CartPage</text>
+
+  <!-- Arrow -->
+  <line x1="390" y1="208" x2="390" y2="224" stroke="#4a5568" stroke-width="1.5"/>
+  <polygon points="390,224 385,218 395,218" fill="#4a5568"/>
+  <text x="410" y="220" fill="#6b7185" font-size="8">extends</text>
+
+  <!-- Core Layer -->
+  <rect x="40" y="226" width="340" height="54" rx="10" fill="#1a1d27" stroke="#fb923c" stroke-width="2"/>
+  <text x="210" y="248" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="700">CORE</text>
+  <text x="210" y="266" text-anchor="middle" fill="#e4e6ed" font-size="10">BasePage &middot; SmartLocator &middot; RetryHandler</text>
+
+  <!-- Utilities Layer -->
+  <rect x="400" y="226" width="340" height="54" rx="10" fill="#1a1d27" stroke="#22d3ee" stroke-width="2"/>
+  <text x="570" y="248" text-anchor="middle" fill="#22d3ee" font-size="11" font-weight="700">UTILITIES</text>
+  <text x="570" y="266" text-anchor="middle" fill="#e4e6ed" font-size="10">StepCollector &middot; ScreenshotMgr &middot; AllureHelper</text>
+
+  <!-- Models -->
+  <rect x="280" y="296" width="220" height="30" rx="8" fill="#1a1d27" stroke="#f472b6" stroke-width="1.5"/>
+  <text x="390" y="316" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="600">Models: ShoppingFlowState</text>
+</svg>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 3. FIXTURE DEPENDENCY CHAIN -->
+<!-- ============================================================ -->
+<h2>3. Fixture Dependency Chain (runs before any test)</h2>
+<p style="color:var(--text-dim); margin-bottom:16px;">Each fixture depends on the one before it. pytest resolves this chain automatically.</p>
+
+<div class="method-chain">
+  <div class="mc-box fixture"><strong>test_settings</strong><span class="mc-file">conftest.py &mdash; session</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box fixture"><strong>playwright_instance</strong><span class="mc-file">conftest.py &mdash; session</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box fixture"><strong>browser_profile</strong><span class="mc-file">conftest.py &mdash; session</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box fixture"><strong>browser</strong><span class="mc-file">conftest.py &mdash; session</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box fixture"><strong>class_context</strong><span class="mc-file">conftest.py &mdash; class</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box fixture"><strong>class_page</strong><span class="mc-file">conftest.py &mdash; class</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box test"><strong>setup_flow</strong><span class="mc-file">test_shopping_flow.py &mdash; class</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px; margin-top:6px;">
+  <span class="mc-arrow">&uarr;</span>
+  <div class="mc-box fixture"><strong>scenario_data</strong><span class="mc-file">conftest.py &mdash; indirect via @parametrize</span></div>
+  <span class="mc-arrow">&larr;</span>
+  <div class="mc-box model"><strong>search_data.json</strong><span class="mc-file">3 scenarios: headphones, phone_case, usb_cable</span></div>
+</div>
+
+<div class="card">
+  <table>
+    <tr><th>Fixture</th><th>Scope</th><th>What it creates</th><th>Depends on</th></tr>
+    <tr><td><code>test_settings</code></td><td><span class="tag tag-yellow">session</span></td><td>Settings object from config.yaml + env vars</td><td>&mdash;</td></tr>
+    <tr><td><code>playwright_instance</code></td><td><span class="tag tag-yellow">session</span></td><td>Playwright server process</td><td>&mdash;</td></tr>
+    <tr><td><code>browser_profile</code></td><td><span class="tag tag-yellow">session</span></td><td>BrowserProfile (engine + channel)</td><td>test_settings</td></tr>
+    <tr><td><code>browser</code></td><td><span class="tag tag-yellow">session</span></td><td>Browser instance (Chromium/Firefox/Edge)</td><td>playwright_instance, browser_profile</td></tr>
+    <tr><td><code>class_context</code></td><td><span class="tag tag-green">class</span></td><td>BrowserContext (isolated cookies/storage)</td><td>browser, test_settings</td></tr>
+    <tr><td><code>class_page</code></td><td><span class="tag tag-green">class</span></td><td>Page (browser tab) shared across steps</td><td>class_context</td></tr>
+    <tr><td><code>scenario_data</code></td><td><span class="tag tag-pink">indirect</span></td><td>Dict from search_data.json (query, max_price, limit, ...)</td><td>@pytest.mark.parametrize</td></tr>
+    <tr><td><code>setup_flow</code></td><td><span class="tag tag-green">class</span></td><td>self.page, self.settings, self.scenario, self.state, collector</td><td>class_page, test_settings, scenario_data</td></tr>
+  </table>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 4. BUSINESS STEPS LAYER -->
+<!-- ============================================================ -->
+<h2>4. Business Steps Layer</h2>
+<p style="color:var(--text-dim); margin-bottom:16px;">Business steps sit between tests and page objects. They orchestrate multiple page objects into meaningful user flows and handle reporting (collector + Allure).</p>
+
+<div class="card">
+  <table>
+    <tr><th>Function</th><th>File</th><th>Orchestrates</th><th>Called by</th></tr>
+    <tr>
+      <td><code>login(page)</code></td>
+      <td><code>business_steps/login_actions.py</code></td>
+      <td>LoginPage &rarr; enter credentials &rarr; verify greeting</td>
+      <td>test_step_00_login</td>
+    </tr>
+    <tr>
+      <td><code>search_items_by_name_under_price()</code></td>
+      <td><code>business_steps/search_actions.py</code></td>
+      <td>HomePage.open() &rarr; search() &rarr; SearchResultsPage.filter &rarr; collect</td>
+      <td>test_step_01_search_and_collect</td>
+    </tr>
+    <tr>
+      <td><code>add_items_to_cart()</code></td>
+      <td><code>business_steps/cart_actions.py</code></td>
+      <td>Per item: ProductPage.navigate() &rarr; select_random_variants() &rarr; add_to_cart()</td>
+      <td>test_step_02_add_to_cart</td>
+    </tr>
+    <tr>
+      <td><code>assert_cart_total_not_exceeds()</code></td>
+      <td><code>business_steps/cart_actions.py</code></td>
+      <td>CartPage.open_cart() &rarr; verify count &rarr; assert total &le; budget</td>
+      <td>test_step_03_validate_cart</td>
+    </tr>
+  </table>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 5. TEST STEP EXECUTION + METHOD CALLS -->
+<!-- ============================================================ -->
+<h2>5. Test Step Execution &mdash; Method Call Chains</h2>
+
+<!-- Step 0 -->
+<div class="step-label">STEP 0 &mdash; test_step_00_login</div>
+<div class="method-chain">
+  <div class="mc-box test"><strong>test_step_00_login()</strong><span class="mc-file">test_shopping_flow.py:139</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box biz"><strong>login(page)</strong><span class="mc-file">login_actions.py:31</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr; if creds set</span>
+  <div class="mc-box page"><strong>LoginPage(page)</strong><span class="mc-file">login_page.py</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box page"><strong>login_page.login(user, pass)</strong><span class="mc-file">login_page.py</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr; if no creds</span>
+  <div class="mc-box util"><strong>collector.add_step("skip")</strong><span class="mc-file">step_collector.py</span></div>
+  <span class="mc-arrow">&mdash;</span>
+  <span style="color:var(--text-dim); font-size:0.8rem; font-style:italic;">Skipped silently (not a failure)</span>
+</div>
+
+<!-- Step 1 -->
+<div class="step-label">STEP 1 &mdash; test_step_01_search_and_collect</div>
+<div class="method-chain">
+  <div class="mc-box test"><strong>test_step_01_search_and_collect()</strong><span class="mc-file">test_shopping_flow.py:149</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box biz"><strong>search_items_by_name_under_price()</strong><span class="mc-file">search_actions.py:30</span></div>
+</div>
+
+<div class="phase-label">PHASE 1a &mdash; Open eBay</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>HomePage(page)</strong><span class="mc-file">home_page.py:24</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box page"><strong>home.open(base_url)</strong><span class="mc-file">home_page.py:58</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box base"><strong>self.navigate()</strong><span class="mc-file">base_page.py</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box base"><strong>_check_for_captcha()</strong><span class="mc-file">base_page.py</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box base"><strong>accept_cookies_if_present()</strong><span class="mc-file">base_page.py</span></div>
+</div>
+
+<div class="phase-label">PHASE 1b &mdash; Search</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>home.search(query)</strong><span class="mc-file">home_page.py:73</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box base"><strong>self.type_text(SEARCH_INPUT, ...)</strong><span class="mc-file">base_page.py</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box base"><strong>find_element(SEARCH_INPUT)</strong><span class="mc-file">base_page.py</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box core"><strong>Strategy #1: CSS "#gh-ac"</strong><span class="mc-file">smart_locator.py</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box base"><strong>press_key("Escape") &rarr; press_key("Enter")</strong><span class="mc-file">base_page.py</span></div>
+</div>
+
+<div class="phase-label">PHASE 1c &mdash; Filter &amp; Collect</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>SearchResultsPage(page)</strong><span class="mc-file">search_results_page.py</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>filter_buy_it_now()</strong><span class="mc-file">search_results_page.py</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box page"><strong>apply_price_filter(max_price)</strong><span class="mc-file">search_results_page.py</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>collect_items_under_price(max, limit)</strong><span class="mc-file">search_results_page.py</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box model"><strong>self.state.urls = [url1, ...]</strong><span class="mc-file">ShoppingFlowState</span></div>
+</div>
+
+<!-- Step 2 -->
+<div class="step-label">STEP 2 &mdash; test_step_02_add_to_cart</div>
+<div class="method-chain">
+  <div class="mc-box test"><strong>test_step_02_add_to_cart()</strong><span class="mc-file">test_shopping_flow.py:168</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box biz"><strong>add_items_to_cart(page, urls)</strong><span class="mc-file">cart_actions.py:32</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr; for each URL (with retry)</span>
+</div>
+
+<div class="phase-label">PHASE 2a &mdash; Select Variants (per item)</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>ProductPage.navigate(url)</strong><span class="mc-file">product_page.py</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box page"><strong>select_random_variants()</strong><span class="mc-file">product_page.py:125</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>_select_size_if_present()</strong><span class="mc-file">native &lt;select&gt; #msku-sel-1</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>_select_color_if_present()</strong><span class="mc-file">variant swatch buttons</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>_select_remaining_variant_dropdowns()</strong><span class="mc-file">native &lt;select&gt; elements</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page" style="border-left-color:var(--cyan);"><strong>_select_remaining_listbox_buttons()</strong><span class="mc-file">custom &lt;button aria-haspopup="listbox"&gt;</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>_set_random_quantity()</strong><span class="mc-file">#qtyTextBox (if enabled)</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box util"><strong>collector.add_step("Select Variants")</strong><span class="mc-file">step_collector.py</span></div>
+</div>
+
+<div class="phase-label">PHASE 2b &mdash; Click Add to Cart (per item)</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>add_to_cart()</strong><span class="mc-file">product_page.py:294</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box page"><strong>_click_add_to_cart()</strong><span class="mc-file">@with_retry(3)</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>_wait_for_cart_confirmation()</strong><span class="mc-file">"Added to cart" overlay</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box page"><strong>_close_cart_overlay()</strong><span class="mc-file">dismiss overlay</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box util"><strong>collector.add_step("Add to Cart")</strong><span class="mc-file">step_collector.py</span></div>
+</div>
+
+<!-- Step 3 -->
+<div class="step-label">STEP 3 &mdash; test_step_03_validate_cart</div>
+<div class="method-chain">
+  <div class="mc-box test"><strong>test_step_03_validate_cart()</strong><span class="mc-file">test_shopping_flow.py:182</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box biz"><strong>assert_cart_total_not_exceeds()</strong><span class="mc-file">cart_actions.py:107</span></div>
+</div>
+
+<div class="phase-label">PHASE 3a &mdash; Open Cart</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>CartPage(page)</strong><span class="mc-file">cart_page.py:31</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box page"><strong>cart.open_cart()</strong><span class="mc-file">cart_page.py:110</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box base"><strong>self.navigate("cart.ebay.com")</strong><span class="mc-file">base_page.py</span></div>
+</div>
+
+<div class="phase-label">PHASE 3b &mdash; Verify Item Count</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>cart.is_cart_empty()</strong><span class="mc-file">cart_page.py:228</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box page"><strong>cart.get_cart_item_count()</strong><span class="mc-file">cart_page.py:236</span></div>
+</div>
+
+<div class="phase-label">PHASE 3c &mdash; Assert Total &le; Budget</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>cart.assert_cart_total_not_exceeds(budget, count)</strong><span class="mc-file">cart_page.py:172</span></div>
+</div>
+<div class="method-chain" style="padding-left:80px;">
+  <span class="mc-arrow">&darr;</span>
+  <div class="mc-box page"><strong>cart.get_subtotal()</strong><span class="mc-file">cart_page.py:125</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box test"><strong>assert actual &le; budget_per_item &times; items_count</strong><span class="mc-file">cart_page.py:218</span></div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 6. VARIANT SELECTION DETAIL -->
+<!-- ============================================================ -->
+<h2>6. Variant Selection &mdash; How All UI Patterns Are Handled</h2>
+
+<div class="card">
+  <p style="margin-bottom:14px; color:var(--text-dim); font-size:0.88rem;">
+    eBay product pages use <strong>three different UI patterns</strong> for variant selectors. The framework detects and handles all of them in sequence:
+  </p>
+  <table>
+    <tr><th>#</th><th>UI Pattern</th><th>Detection</th><th>Handler Method</th><th>Example</th></tr>
+    <tr>
+      <td>1</td>
+      <td>Native <code>&lt;select&gt;</code></td>
+      <td><code>select[id^='msku-sel']</code>, <code>.x-msku select</code></td>
+      <td><code>_select_size_if_present()</code><br/><code>_select_remaining_variant_dropdowns()</code></td>
+      <td>Size dropdown, Model dropdown</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Swatch buttons</td>
+      <td><code>[data-testid='x-msku'] button</code>, <code>.x-msku button</code></td>
+      <td><code>_select_color_if_present()</code></td>
+      <td>Colour swatches, Style tiles</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Custom listbox<br/><code>&lt;button aria-haspopup="listbox"&gt;</code></td>
+      <td><code>.listbox-button__control</code>, <code>.btn__text</code> contains "Select"</td>
+      <td><code>_select_remaining_listbox_buttons()</code></td>
+      <td>Color: Select, Model: Select (headphones)</td>
+    </tr>
+  </table>
+  <p style="margin-top:14px; color:var(--text-dim); font-size:0.82rem;">
+    <strong>Placeholder detection:</strong> A dropdown/button needs selection if its current text contains any of: <code>"select"</code>, <code>"choose"</code>, <code>"pick"</code>, <code>"- -"</code>, <code>"--"</code>, or its value is <code>""</code>, <code>"-1"</code>, or <code>"0"</code>.
+  </p>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 7. STEP DEPENDENCIES -->
+<!-- ============================================================ -->
+<h2>7. Step Dependencies (auto-skip on failure)</h2>
+
+<div class="diagram">
+<svg width="880" height="200" viewBox="0 0 880 200">
+  <!-- Step 0 -->
+  <rect x="10" y="40" width="180" height="80" rx="10" fill="#1a1d27" stroke="#4ade80" stroke-width="2"/>
+  <text x="100" y="66" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="700">STEP 0</text>
+  <text x="100" y="86" text-anchor="middle" fill="#e4e6ed" font-size="11" font-weight="600">Login</text>
+  <text x="100" y="104" text-anchor="middle" fill="#6b7185" font-size="9">login(page)</text>
+
+  <!-- Arrow 0→1 -->
+  <line x1="190" y1="80" x2="230" y2="80" stroke="#4ade80" stroke-width="2"/>
+  <polygon points="230,80 222,74 222,86" fill="#4ade80"/>
+  <text x="210" y="72" text-anchor="middle" fill="#6b7185" font-size="8">pass</text>
+
+  <!-- Step 1 -->
+  <rect x="230" y="40" width="180" height="80" rx="10" fill="#1a1d27" stroke="#6c8cff" stroke-width="2"/>
+  <text x="320" y="66" text-anchor="middle" fill="#6c8cff" font-size="10" font-weight="700">STEP 1</text>
+  <text x="320" y="86" text-anchor="middle" fill="#e4e6ed" font-size="11" font-weight="600">Search &amp; Collect</text>
+  <text x="320" y="104" text-anchor="middle" fill="#6b7185" font-size="9">search_items_...()</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="410" y1="80" x2="450" y2="80" stroke="#6c8cff" stroke-width="2"/>
+  <polygon points="450,80 442,74 442,86" fill="#6c8cff"/>
+  <text x="430" y="72" text-anchor="middle" fill="#6b7185" font-size="8">pass</text>
+
+  <!-- Step 2 -->
+  <rect x="450" y="40" width="200" height="80" rx="10" fill="#1a1d27" stroke="#2dd4bf" stroke-width="2"/>
+  <text x="550" y="66" text-anchor="middle" fill="#2dd4bf" font-size="10" font-weight="700">STEP 2</text>
+  <text x="550" y="86" text-anchor="middle" fill="#e4e6ed" font-size="11" font-weight="600">Add to Cart</text>
+  <text x="550" y="104" text-anchor="middle" fill="#6b7185" font-size="9">add_items_to_cart()</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="650" y1="80" x2="690" y2="80" stroke="#2dd4bf" stroke-width="2"/>
+  <polygon points="690,80 682,74 682,86" fill="#2dd4bf"/>
+  <text x="670" y="72" text-anchor="middle" fill="#6b7185" font-size="8">pass</text>
+
+  <!-- Step 3 -->
+  <rect x="690" y="40" width="180" height="80" rx="10" fill="#1a1d27" stroke="#a78bfa" stroke-width="2"/>
+  <text x="780" y="66" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">STEP 3</text>
+  <text x="780" y="86" text-anchor="middle" fill="#e4e6ed" font-size="11" font-weight="600">Validate Cart</text>
+  <text x="780" y="104" text-anchor="middle" fill="#6b7185" font-size="9">assert_cart_total()</text>
+
+  <!-- Fail paths -->
+  <line x1="100" y1="120" x2="100" y2="155" stroke="#f87171" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="100" y="170" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">FAIL &rarr; steps 1, 2, 3 SKIPPED</text>
+
+  <line x1="320" y1="120" x2="320" y2="148" stroke="#f87171" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="320" y="162" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">FAIL &rarr; steps 2, 3 SKIPPED</text>
+
+  <line x1="550" y1="120" x2="550" y2="148" stroke="#f87171" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="550" y="162" text-anchor="middle" fill="#f87171" font-size="9" font-weight="600">FAIL &rarr; step 3 SKIPPED</text>
+</svg>
+</div>
+
+<div class="card">
+  <p style="margin:0; color:var(--text-dim); font-size:0.88rem;">
+    <strong style="color:var(--text);">How it works:</strong> The <code>pytest_runtest_setup</code> hook in <code>conftest.py</code> checks if any earlier step in the same class has failed. If yes, it calls <code>pytest.skip("Previous step failed")</code>. Tracked per parametrised variant via <code>_failed_class_nodes</code> on the pytest config object.
+  </p>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 8. DATA FLOW -->
+<!-- ============================================================ -->
+<h2>8. Data Flow &mdash; How State Moves Between Steps</h2>
+
+<div class="diagram">
+<svg width="880" height="250" viewBox="0 0 880 250">
+  <!-- ShoppingFlowState -->
+  <rect x="290" y="10" width="300" height="60" rx="10" fill="#1a1d27" stroke="#f472b6" stroke-width="2"/>
+  <text x="440" y="30" text-anchor="middle" fill="#f472b6" font-size="10" font-weight="700">MODEL &mdash; ShoppingFlowState</text>
+  <text x="440" y="50" text-anchor="middle" fill="#e4e6ed" font-size="11">urls: list[str] &middot; added_count: int</text>
+
+  <text x="440" y="88" text-anchor="middle" fill="#6b7185" font-size="9">created in setup_flow &rarr; stored as self.state</text>
+
+  <!-- scenario_data -->
+  <rect x="640" y="10" width="230" height="60" rx="10" fill="#1a1d27" stroke="#facc15" stroke-width="1.5"/>
+  <text x="755" y="30" text-anchor="middle" fill="#facc15" font-size="10" font-weight="700">SCENARIO DATA</text>
+  <text x="755" y="50" text-anchor="middle" fill="#e4e6ed" font-size="9">query, max_price, limit, budget_per_item</text>
+
+  <!-- Step boxes -->
+  <rect x="10" y="110" width="175" height="56" rx="8" fill="#1a1d27" stroke="#4ade80" stroke-width="1.5"/>
+  <text x="98" y="132" text-anchor="middle" fill="#4ade80" font-size="10" font-weight="600">Step 0: Login</text>
+  <text x="98" y="150" text-anchor="middle" fill="#6b7185" font-size="9">no state change</text>
+
+  <rect x="210" y="110" width="195" height="56" rx="8" fill="#1a1d27" stroke="#6c8cff" stroke-width="1.5"/>
+  <text x="308" y="132" text-anchor="middle" fill="#6c8cff" font-size="10" font-weight="600">Step 1: Search</text>
+  <text x="308" y="150" text-anchor="middle" fill="#e4e6ed" font-size="9" font-weight="600">state.urls = [url1, ...]</text>
+
+  <rect x="430" y="110" width="210" height="56" rx="8" fill="#1a1d27" stroke="#2dd4bf" stroke-width="1.5"/>
+  <text x="535" y="132" text-anchor="middle" fill="#2dd4bf" font-size="10" font-weight="600">Step 2: Add to Cart</text>
+  <text x="535" y="150" text-anchor="middle" fill="#e4e6ed" font-size="9" font-weight="600">state.added_count = N</text>
+
+  <rect x="665" y="110" width="205" height="56" rx="8" fill="#1a1d27" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="768" y="132" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="600">Step 3: Validate</text>
+  <text x="768" y="150" text-anchor="middle" fill="#e4e6ed" font-size="9" font-weight="600">reads added_count + budget</text>
+
+  <!-- Arrows between steps -->
+  <line x1="185" y1="138" x2="210" y2="138" stroke="#4a5568" stroke-width="1.5"/>
+  <polygon points="210,138 204,133 204,143" fill="#4a5568"/>
+  <line x1="405" y1="138" x2="430" y2="138" stroke="#4a5568" stroke-width="1.5"/>
+  <polygon points="430,138 424,133 424,143" fill="#4a5568"/>
+  <line x1="640" y1="138" x2="665" y2="138" stroke="#4a5568" stroke-width="1.5"/>
+  <polygon points="665,138 659,133 659,143" fill="#4a5568"/>
+
+  <!-- Connection from state to steps -->
+  <line x1="380" y1="70" x2="308" y2="110" stroke="#f472b6" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="440" y1="70" x2="535" y2="110" stroke="#f472b6" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="500" y1="70" x2="768" y2="110" stroke="#f472b6" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Connection from scenario_data to steps -->
+  <line x1="680" y1="70" x2="308" y2="110" stroke="#facc15" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="750" y1="70" x2="768" y2="110" stroke="#facc15" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- Assert box -->
+  <rect x="665" y="180" width="205" height="36" rx="6" fill="rgba(74,222,128,0.08)" stroke="#4ade80" stroke-width="1"/>
+  <text x="768" y="202" text-anchor="middle" fill="#4ade80" font-size="10">assert total &le; budget &times; count</text>
+  <line x1="768" y1="166" x2="768" y2="180" stroke="#4ade80" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- Parametrize note -->
+  <rect x="10" y="190" width="380" height="48" rx="8" fill="rgba(250,204,21,0.06)" stroke="#facc15" stroke-width="1"/>
+  <text x="200" y="210" text-anchor="middle" fill="#facc15" font-size="10" font-weight="600">@pytest.mark.parametrize &mdash; 3 scenarios</text>
+  <text x="200" y="228" text-anchor="middle" fill="#6b7185" font-size="9">headphones_under_50 &middot; phone_case_under_20 &middot; usb_cable_under_15</text>
+</svg>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 9. RETRY & ERROR HANDLING -->
+<!-- ============================================================ -->
+<h2>9. Retry &amp; Error Handling</h2>
+
+<div class="card">
+  <table>
+    <tr><th>Mechanism</th><th>Where</th><th>Retries</th><th>Behaviour</th></tr>
+    <tr>
+      <td><code>@with_retry</code></td>
+      <td>BasePage.type_text(), ProductPage._click_add_to_cart()</td>
+      <td>3 attempts</td>
+      <td>Exponential backoff; re-locates element on each retry via SmartLocator fallback strategy</td>
+    </tr>
+    <tr>
+      <td>Add-to-cart retry</td>
+      <td>cart_actions.py &mdash; per item loop</td>
+      <td>2 attempts</td>
+      <td>Full page reload + re-select variants + re-click Add to Cart</td>
+    </tr>
+    <tr>
+      <td>SmartLocator fallback</td>
+      <td>BasePage.find_element()</td>
+      <td>N strategies</td>
+      <td>Tries CSS first, falls back to XPath if CSS fails</td>
+    </tr>
+    <tr>
+      <td>CAPTCHA detection</td>
+      <td>BasePage._check_for_captcha()</td>
+      <td>&mdash;</td>
+      <td>Raises <code>CaptchaDetectedError</code> with screenshot; test fails cleanly</td>
+    </tr>
+    <tr>
+      <td>Step-skip on failure</td>
+      <td>conftest.py &mdash; pytest_runtest_setup</td>
+      <td>&mdash;</td>
+      <td>If any earlier step in the same class failed, <code>pytest.skip()</code></td>
+    </tr>
+    <tr>
+      <td>Teardown error guard</td>
+      <td>conftest.py &mdash; class_context fixture</td>
+      <td>&mdash;</td>
+      <td><code>try/except</code> around <code>ctx.close()</code> to suppress TargetClosedError</td>
+    </tr>
+  </table>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 10. AFTER TEST: Hooks & Reports -->
+<!-- ============================================================ -->
+<h2>10. After Each Step &mdash; Hooks &amp; Reporting</h2>
+
+<div class="method-chain">
+  <div class="mc-box test"><strong>test_step completes</strong><span class="mc-file">pass or fail</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box fixture"><strong>pytest_runtest_makereport</strong><span class="mc-file">conftest.py &mdash; hook</span></div>
+  <span class="mc-arrow">&rarr;</span>
+  <div class="mc-box fixture"><strong>auto_screenshot_on_failure</strong><span class="mc-file">conftest.py &mdash; autouse fixture</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr; if failed &rarr;</span>
+  <div class="mc-box util"><strong>capture_on_failure(page)</strong><span class="mc-file">screenshot_manager.py</span></div>
+  <span class="mc-arrow">+</span>
+  <div class="mc-box util"><strong>ctx.tracing.stop()</strong><span class="mc-file">Playwright trace</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr; on last step &rarr;</span>
+  <div class="mc-box util"><strong>generate_scenario_report()</strong><span class="mc-file">html_report_generator.py</span></div>
+</div>
+<div class="method-chain" style="padding-left:40px;">
+  <span class="mc-arrow">&darr; on session finish &rarr;</span>
+  <div class="mc-box util"><strong>generate_run_summary()</strong><span class="mc-file">html_report_generator.py</span></div>
+</div>
+
+<div class="card">
+  <p style="margin:0; color:var(--text-dim); font-size:0.88rem;">
+    <strong style="color:var(--text);">Reports generated:</strong>
+    &bull; Per-scenario HTML report (one per parametrised scenario)
+    &bull; Run summary HTML (all scenarios combined)
+    &bull; Per-worker report when running with <code>pytest-xdist -n N</code>
+    &bull; Allure results in <code>allure-results/run_&lt;id&gt;/</code>
+  </p>
+</div>
+
+<div style="text-align:center; padding:40px 0 0; color:var(--text-muted); font-size:0.82rem;">
+  Shopping Flow Dependency &amp; Inheritance Map &mdash; eBay E2E Framework
+</div>
+
+</body>
+</html>

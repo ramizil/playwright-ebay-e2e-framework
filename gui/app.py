@@ -138,7 +138,7 @@ def api_run():
     cmd += [f"--alluredir=allure-results/run_{run_id}"]
 
     if workers > 1:
-        cmd += [f"-n={workers}"]
+        cmd += [f"-n={workers}", "--dist=loadscope"]
 
     all_k_parts = []
     if scenarios:

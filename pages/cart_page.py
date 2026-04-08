@@ -41,29 +41,37 @@ class CartPage(BasePage):
     # Smart Locators — Tiered strategy
     # ------------------------------------------------------------------
 
-    # Tier 2: Auto-generated ID → CSS by data-test-id, XPath by attr fallback
+    # Tier 2: data-test-id on a <div>, text inside nested <span>
     CART_SUBTOTAL = SmartLocator(
         name="cart_subtotal",
         strategies=[
             LocatorStrategy(
                 "css",
-                "[data-test-id='SUBTOTAL'] span.text-display-span__value--bold",
-                "subtotal by data-test-id",
+                "[data-test-id='SUBTOTAL'] .text-display-span",
+                "subtotal by data-test-id + text-display-span class",
             ),
             LocatorStrategy(
                 "xpath",
-                "//span[@data-test-id='SUBTOTAL']//span[contains(@class,'text-display-span')]",
+                "//*[@data-test-id='SUBTOTAL']//span[contains(@class,'text-display-span')]",
                 "subtotal by XPath data-test-id",
             ),
         ],
     )
 
-    # Tier 3: No ID → CSS by class, XPath by class fallback
+    # Item count shown as "Items (N)" in the order summary header
     CART_ITEM_COUNT = SmartLocator(
         name="cart_item_count",
         strategies=[
-            LocatorStrategy("css", "span.cart-count", "cart count by class"),
-            LocatorStrategy("xpath", "//span[contains(@class,'cart-count')]", "cart count by XPath class"),
+            LocatorStrategy(
+                "css",
+                ".cart-summary-line-item span:has-text('Items')",
+                "items count by summary text",
+            ),
+            LocatorStrategy(
+                "xpath",
+                "//div[contains(@class,'cart-summary-line-item')]//span[contains(.,'Items')]",
+                "items count by XPath summary text",
+            ),
         ],
     )
 
@@ -76,29 +84,29 @@ class CartPage(BasePage):
         ],
     )
 
-    # Tier 2: Auto-generated ID → CSS by data-test-id, XPath by attr fallback
+    # Tier 2: data-test-id on a <div>, text inside nested <span>
     CART_TOTAL_PRICE = SmartLocator(
         name="cart_total_price",
         strategies=[
             LocatorStrategy(
                 "css",
-                "[data-test-id='TOTAL'] span.text-display-span__value--bold",
-                "total by data-test-id",
+                "[data-test-id='TOTAL'] .text-display-span",
+                "total by data-test-id + text-display-span class",
             ),
             LocatorStrategy(
                 "xpath",
-                "//span[@data-test-id='TOTAL']//span[contains(@class,'text-display-span')]",
+                "//*[@data-test-id='TOTAL']//span[contains(@class,'text-display-span')]",
                 "total by XPath data-test-id",
             ),
         ],
     )
 
-    # Tier 3: No ID → CSS text match, XPath text fallback
+    # Tier 3: empty cart message
     EMPTY_CART_MESSAGE = SmartLocator(
         name="empty_cart_message",
         strategies=[
-            LocatorStrategy("css", "span:has-text('You have no items in your cart')", "empty cart by text"),
-            LocatorStrategy("xpath", "//span[contains(.,'no items')]", "empty cart by XPath text"),
+            LocatorStrategy("css", "span:has-text('You have no items in your cart'), span:has-text('no items')", "empty cart by text"),
+            LocatorStrategy("xpath", "//span[contains(.,'no items') or contains(.,'You don')]", "empty cart by XPath text"),
         ],
     )
 
@@ -147,9 +155,10 @@ class CartPage(BasePage):
 
     @staticmethod
     def _parse_price(text: str) -> Optional[float]:
-        """Extract a numeric dollar amount from display text.
+        """Extract a numeric amount from display text.
 
-        Handles ``$1,299.00``, ``US $49.99``, and similar eBay formats.
+        Handles multiple eBay locale formats:
+        ``$1,299.00``, ``US $49.99``, ``ILS 258.30``, ``EUR 42.00``.
 
         Args:
             text: Raw text from the price element.
@@ -159,7 +168,8 @@ class CartPage(BasePage):
         """
         if not text:
             return None
-        match = re.search(r"\$?\s?([0-9,]+\.?\d*)", text.replace("US", "").strip())
+        cleaned = re.sub(r"[A-Za-z$]", "", text).strip()
+        match = re.search(r"([0-9,]+\.?\d*)", cleaned)
         if match:
             return float(match.group(1).replace(",", ""))
         return None
@@ -234,13 +244,19 @@ class CartPage(BasePage):
         return self.is_element_visible(self.EMPTY_CART_MESSAGE, timeout=5_000)
 
     def get_cart_item_count(self) -> int:
-        """Read the number of items displayed in the cart badge.
+        """Read the number of items from the "Items (N)" summary line.
+
+        Parses text like ``"Items (12)"`` and returns the integer 12.
 
         Returns:
-            Integer count, or 0 if the badge is missing.
+            Integer count, or 0 if the element is missing or unparsable.
         """
         try:
             text = self.get_text(self.CART_ITEM_COUNT, timeout=5_000)
-            return int(re.sub(r"\D", "", text) or "0")
+            match = re.search(r"\((\d+)\)", text)
+            if match:
+                return int(match.group(1))
+            digits = re.sub(r"\D", "", text)
+            return int(digits) if digits else 0
         except (SmartLocatorError, ValueError):
             return 0

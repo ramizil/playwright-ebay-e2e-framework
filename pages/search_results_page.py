@@ -87,11 +87,11 @@ class SearchResultsPage(BasePage):
         ],
     )
 
-    # Tier 3: No ID → CSS by class + href, XPath by href + text fallback
+    # Tier 3: No ID → CSS by href attr, XPath by href + text fallback
     BUY_IT_NOW_FILTER = SmartLocator(
         name="buy_it_now_filter",
         strategies=[
-            LocatorStrategy("css", "a[href*='LH_BIN'].x-refine__single-select-link", "Buy It Now by class + href"),
+            LocatorStrategy("css", "a[href*='LH_BIN']", "Buy It Now by href"),
             LocatorStrategy("xpath", "//a[contains(@href,'LH_BIN') and contains(.,'Buy It Now')]", "Buy It Now by XPath href + text"),
         ],
     )

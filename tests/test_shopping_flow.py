@@ -42,7 +42,7 @@ from business_steps import (
 from models import ShoppingFlowState
 from utils.data_loader import load_test_scenarios, get_scenario_ids
 from utils.allure_helper import attach_json
-from utils.step_collector import collector
+from utils.step_collector import collector  # used by setup_flow fixture
 from core.logger_config import get_logger
 
 logger = get_logger(__name__)
@@ -164,17 +164,6 @@ class TestEbayShoppingFlow:
             screenshots_dir=self.settings.screenshots_dir_for_run,
         )
 
-        if not self.state.urls:
-            collector.add_step(
-                "No Items Found", "search_items_by_name_under_price()", "skip",
-                detail=f"No items found for '{self.scenario['query']}'"
-                       f" under ${self.scenario['max_price']}",
-            )
-            pytest.skip(
-                f"No items found for '{self.scenario['query']}'"
-                f" under ${self.scenario['max_price']}"
-            )
-
     @allure.step("Step 2 — Add items to cart")
     def test_step_02_add_to_cart(self):
         """
@@ -188,13 +177,6 @@ class TestEbayShoppingFlow:
             self.page, self.state.urls,
             screenshots_dir=self.settings.screenshots_dir_for_run,
         )
-
-        if self.state.added_count == 0:
-            collector.add_step(
-                "No Items Added", "add_items_to_cart()", "skip",
-                detail="No items could be added to cart",
-            )
-            pytest.skip("No items could be added to cart")
 
     @allure.step("Step 3 — Validate cart total against budget")
     def test_step_03_validate_cart(self):

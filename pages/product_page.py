@@ -86,11 +86,14 @@ class ProductPage(BasePage):
     )
 
     # Tier 3: No ID → CSS by class, XPath fallback
+    # eBay renders variant selectors as button swatches, radio tiles, or
+    # dropdown-style chips.  The class names have changed over time.
     COLOR_BUTTONS = SmartLocator(
         name="color_options",
         strategies=[
-            LocatorStrategy("css", "ul.x-msku__select-box-wrapper li button", "colour buttons by class"),
-            LocatorStrategy("xpath", "//ul[contains(@class,'x-msku')]//li//button", "colour buttons by XPath class"),
+            LocatorStrategy("css", "[data-testid='x-msku'] button, ul.x-msku__select-box-wrapper li button", "variant buttons by data-testid or class"),
+            LocatorStrategy("xpath", "//div[contains(@class,'vim')]//fieldset//button | //ul[contains(@class,'x-msku')]//li//button", "variant buttons by fieldset or msku class"),
+            LocatorStrategy("css", ".x-msku button, .smsku-variation button", "variant buttons by broad msku class"),
         ],
     )
 
@@ -126,14 +129,19 @@ class ProductPage(BasePage):
         other variant before "Add to Cart" becomes active.  This method:
 
         1. Checks if a size dropdown is present -> selects a random option.
-        2. Checks if colour buttons are present -> clicks a random one.
-        3. Sets a random quantity (1-MAX_RANDOM_QUANTITY) if the input exists.
+        2. Checks if colour/style buttons are present -> clicks a random one.
+        3. Selects from any remaining native ``<select>`` dropdowns.
+        4. Selects from any remaining custom listbox buttons
+           (``<button aria-haspopup="listbox">`` with text "Select").
+        5. Sets a random quantity (1-MAX_RANDOM_QUANTITY) if the input exists
+           and is enabled (it stays disabled until all variants are chosen).
 
-        The selection is random to exercise different
-        paths on each run.
+        The selection is random to exercise different paths on each run.
         """
         self._select_size_if_present()
         self._select_color_if_present()
+        self._select_remaining_variant_dropdowns()
+        self._select_remaining_listbox_buttons()
         self._set_random_quantity()
 
     def _select_size_if_present(self) -> None:
@@ -147,44 +155,196 @@ class ProductPage(BasePage):
             options: List[str] = size_select.locator("option").all_inner_texts()
             valid_options = [
                 opt for opt in options
-                if opt.strip() and "select" not in opt.lower()
+                if opt.strip()
+                and not any(kw in opt.lower() for kw in self._PLACEHOLDER_KEYWORDS)
             ]
             if valid_options:
                 choice = random.choice(valid_options)
                 size_select.select_option(label=choice)
                 self.logger.info("Selected size: '%s'", choice)
+                self.page.wait_for_timeout(1_000)
         except SmartLocatorError:
             self.logger.info("No size selector found — skipping")
 
-    def _select_color_if_present(self) -> None:
-        """Pick a random colour from the option buttons if they exist.
+    _VARIANT_BUTTON_CSS = (
+        "[data-testid='x-msku'] button, "
+        "ul.x-msku__select-box-wrapper li button, "
+        ".x-msku button, "
+        ".smsku-variation button"
+    )
 
-        eBay renders colour options as a row of clickable buttons.  This
-        clicks a random enabled one.
+    def _select_color_if_present(self) -> None:
+        """Pick a random variant option from the available buttons.
+
+        eBay renders variant options (colour, style, type) as clickable
+        button swatches.  After clicking, waits briefly for the page to
+        update (re-enable quantity input, refresh price, etc.).
         """
         try:
             self.find_element(self.COLOR_BUTTONS, timeout=3_000, optional=True)
-            buttons = self.page.locator(
-                "ul.x-msku__select-box-wrapper li button"
-            ).all()
-            enabled = [b for b in buttons if b.is_enabled()]
+            buttons = self.page.locator(self._VARIANT_BUTTON_CSS).all()
+            enabled = [b for b in buttons if b.is_enabled() and b.is_visible()]
             if enabled:
                 choice = random.choice(enabled)
                 choice.click()
-                self.logger.info("Selected a random colour option")
+                self.logger.info("Selected a random variant option")
+                self.page.wait_for_timeout(1_000)
         except SmartLocatorError:
-            self.logger.info("No colour options found — skipping")
+            self.logger.info("No variant options found — skipping")
+
+    _PLACEHOLDER_KEYWORDS = {"select", "choose", "pick", "- -", "--"}
+    _PLACEHOLDER_VALUES = {"", "-1", "0"}
+
+    def _needs_selection(self, sel) -> bool:
+        """Return True if a ``<select>`` element still shows a placeholder."""
+        try:
+            current_value = sel.input_value()
+            if current_value in self._PLACEHOLDER_VALUES:
+                return True
+            selected_text = sel.locator("option:checked").first.inner_text(timeout=1_000).lower()
+            return any(kw in selected_text for kw in self._PLACEHOLDER_KEYWORDS)
+        except Exception:
+            return True
+
+    def _select_remaining_variant_dropdowns(self) -> None:
+        """Select a random option from any unresolved variant dropdowns.
+
+        Scans for ALL ``<select>`` elements inside eBay's variant
+        containers — both ``msku-sel-*`` IDs and any other selects
+        within the variant section.  For each one that still shows a
+        placeholder ("Select", "Choose", etc.), picks a valid option.
+        """
+        try:
+            selects = self.page.locator(
+                "select[id^='msku-sel'], "
+                ".x-msku select, "
+                "[data-testid='x-msku'] select, "
+                ".vim-x-item-variations select"
+            ).all()
+            if not selects:
+                return
+            self.logger.info("Found %d variant dropdown(s) on page", len(selects))
+            for i, sel in enumerate(selects):
+                if not sel.is_visible():
+                    continue
+                if not self._needs_selection(sel):
+                    try:
+                        current = sel.locator("option:checked").first.inner_text(timeout=500)
+                        self.logger.info("Dropdown #%d already set to '%s'", i + 1, current.strip())
+                    except Exception:
+                        pass
+                    continue
+                options = sel.locator("option").all_inner_texts()
+                valid = [
+                    o for o in options
+                    if o.strip()
+                    and not any(kw in o.lower() for kw in self._PLACEHOLDER_KEYWORDS)
+                ]
+                if valid:
+                    choice = random.choice(valid)
+                    sel.select_option(label=choice)
+                    self.logger.info("Dropdown #%d: selected '%s'", i + 1, choice)
+                    self.page.wait_for_timeout(1_000)
+                else:
+                    self.logger.warning("Dropdown #%d: no valid options found", i + 1)
+        except Exception as exc:
+            self.logger.debug("Variant dropdown selection: %s", exc)
+
+    _LISTBOX_BUTTON_CSS = (
+        "button.listbox-button__control[aria-haspopup='listbox'], "
+        "button.btn--form[aria-haspopup='listbox']"
+    )
+
+    def _select_remaining_listbox_buttons(self) -> None:
+        """Handle custom listbox buttons that eBay uses instead of ``<select>``.
+
+        Some product pages render variant pickers as
+        ``<button aria-haspopup="listbox">`` with a ``.btn__text`` span
+        showing "Select".  This method clicks each unresolved button to
+        open its listbox panel, then picks the first valid option.
+        """
+        try:
+            buttons = self.page.locator(self._LISTBOX_BUTTON_CSS).all()
+            if not buttons:
+                return
+
+            pending = []
+            for btn in buttons:
+                if not btn.is_visible():
+                    continue
+                text_el = btn.locator(".btn__text")
+                try:
+                    btn_text = text_el.inner_text(timeout=1_000).strip().lower()
+                except Exception:
+                    btn_text = (btn.get_attribute("value") or "").strip().lower()
+                if any(kw in btn_text for kw in self._PLACEHOLDER_KEYWORDS):
+                    pending.append(btn)
+                else:
+                    self.logger.info("Listbox already set to '%s'", btn_text)
+
+            if not pending:
+                return
+
+            self.logger.info("Found %d custom listbox button(s) needing selection", len(pending))
+
+            for i, btn in enumerate(pending):
+                try:
+                    label_el = btn.locator(".btn__label")
+                    label = label_el.inner_text(timeout=500).strip() if label_el.is_visible() else f"#{i + 1}"
+                except Exception:
+                    label = f"#{i + 1}"
+
+                btn.click()
+                self.page.wait_for_timeout(500)
+
+                panel_id = btn.get_attribute("aria-controls") or ""
+                if panel_id:
+                    options = self.page.locator(
+                        f"#{panel_id} [role='option']"
+                    ).all()
+                else:
+                    options = self.page.locator(
+                        "[role='listbox'][aria-expanded='true'] [role='option'], "
+                        ".listbox-button__listbox--expanded [role='option']"
+                    ).all()
+
+                valid = [
+                    opt for opt in options
+                    if opt.is_visible()
+                    and not any(
+                        kw in (opt.inner_text() or "").lower()
+                        for kw in self._PLACEHOLDER_KEYWORDS
+                    )
+                ]
+
+                if valid:
+                    choice = random.choice(valid)
+                    choice_text = choice.inner_text().strip()
+                    choice.click()
+                    self.logger.info("Listbox %s: selected '%s'", label, choice_text)
+                    self.page.wait_for_timeout(1_000)
+                else:
+                    self.logger.warning("Listbox %s: no valid options found — closing", label)
+                    self.page.keyboard.press("Escape")
+                    self.page.wait_for_timeout(300)
+        except Exception as exc:
+            self.logger.debug("Listbox button selection: %s", exc)
 
     def _set_random_quantity(self) -> None:
         """Set a random quantity between 1 and ``MAX_RANDOM_QUANTITY``.
 
         Reads the max-available quantity from the page (shown next to the
         input, e.g. "3 available") and picks a random value within the
-        allowed range.  If the quantity input is absent or the current
-        value is already acceptable, exits silently.
+        allowed range.  If the quantity input is absent, disabled, or the
+        current value is already acceptable, exits silently.
         """
         try:
             qty_input = self.find_element(self.QUANTITY_INPUT, timeout=3_000, optional=True)
+
+            if not qty_input.is_enabled():
+                self.logger.info("Quantity input is disabled — skipping")
+                return
+
             current_val = qty_input.input_value()
 
             max_qty = self.MAX_RANDOM_QUANTITY
@@ -217,19 +377,20 @@ class ProductPage(BasePage):
     def add_to_cart(self) -> bool:
         """Click "Add to Cart" and verify the confirmation message.
 
-        Handles the full flow:
-        1. Select variants if required.
-        2. Click the "Add to Cart" button (with retry).
-        3. Wait for the confirmation overlay.
-        4. Take a screenshot of the confirmation.
-        5. Close the overlay if present.
+        **Note:** call ``select_random_variants()`` before this method
+        if variant selection is needed — the business step layer handles
+        the sequencing so each phase can be reported independently.
+
+        Flow:
+        1. Click the "Add to Cart" button (with retry).
+        2. Wait for the confirmation overlay.
+        3. Take a screenshot of the confirmation.
+        4. Close the overlay if present.
 
         Returns:
             ``True`` if the item was successfully added;
             ``False`` if the button was missing or the action failed.
         """
-        self.select_random_variants()
-
         try:
             self._click_add_to_cart()
         except SmartLocatorError:
