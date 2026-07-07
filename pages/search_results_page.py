@@ -69,13 +69,25 @@ class SearchResultsPage(BasePage):
         ],
     )
 
-    # Tier 3: No ID → CSS by class + data-attr, XPath fallback
+    # Tier 3: No ID → CSS by class, XPath fallback
+    # Do not require [data-viewport] — eBay lazy-loads that attr only after scroll.
     RESULT_ITEMS = SmartLocator(
         name="search_result_items",
         strategies=[
-            LocatorStrategy("css", "li.s-card[data-viewport]", "result card by class + data-attr"),
-            LocatorStrategy("xpath", "//ul[contains(@class,'srp-results')]//li[@data-viewport]", "result card by XPath"),
+            LocatorStrategy("css", "li.s-card[data-listingid]", "result card by listing id"),
+            LocatorStrategy("css", "li.s-card", "result card by class"),
+            LocatorStrategy("xpath", "//ul[contains(@class,'srp-results')]//li[contains(@class,'s-card')]", "result card by XPath"),
+            LocatorStrategy("css", "li.s-item", "legacy result card by class"),
         ],
+    )
+
+    # Ordered fallbacks for scraping — specific first, then legacy layout.
+    _RESULT_ITEM_SELECTORS = (
+        "li.s-card[data-listingid]",
+        "li.s-card",
+        "ul.srp-results li.s-card",
+        "li.s-item",
+        "ul.srp-results li.s-item",
     )
 
     # Tier 3: No ID → CSS by class, XPath fallback
@@ -219,13 +231,51 @@ class SearchResultsPage(BasePage):
         attach_json("collected_item_urls", collected_urls)
         return collected_urls
 
+    def _resolve_result_item_locator(self):
+        """Find the first selector that matches visible search result cards.
+
+        eBay may serve ``li.s-card`` (modern) or ``li.s-item`` (legacy).
+        The ``data-viewport`` attribute is set lazily on scroll, so relying
+        on it causes false "no results" failures even when cards are present.
+        """
+        for selector in self._RESULT_ITEM_SELECTORS:
+            locator = self.page.locator(selector)
+            try:
+                locator.first.wait_for(state="visible", timeout=5_000)
+                count = locator.count()
+                if count > 0:
+                    self.logger.info(
+                        "Result cards matched '%s' (%d on page)", selector, count
+                    )
+                    return locator
+            except Exception:
+                continue
+
+        self.logger.warning("No result items found on page")
+        return None
+
+    @staticmethod
+    def _is_placeholder_card(item) -> bool:
+        """Skip eBay promo / placeholder cards that are not real listings."""
+        listing_id = item.get_attribute("data-listingid") or ""
+        if len(listing_id) > 15:
+            return True
+
+        title_el = item.locator(".s-card__title, .s-item__title").first
+        try:
+            title = title_el.inner_text(timeout=500).lower()
+        except Exception:
+            return False
+        return "shop on ebay" in title
+
     def _extract_items_from_current_page(self, max_price: float) -> List[str]:
         """Parse all result cards on the current page and filter by price.
 
-        eBay's current DOM uses ``li.s-card[data-viewport]`` for each
-        result card, with:
+        eBay's current DOM uses ``li.s-card`` for each result card, with:
         * ``a.s-card__link`` for the item URL.
         * ``.s-card__price`` for the display price.
+
+        Legacy layouts use ``li.s-item`` with ``.s-item__price`` / ``.s-item__link``.
 
         Items whose price cannot be parsed or exceeds ``max_price`` are
         skipped with a warning.
@@ -239,24 +289,21 @@ class SearchResultsPage(BasePage):
         urls: List[str] = []
         self.wait(1_000)
 
-        # Use .first to avoid strict-mode violation on multi-element locators
-        item_locator = self.page.locator("li.s-card[data-viewport]")
-        try:
-            item_locator.first.wait_for(state="visible", timeout=10_000)
-        except Exception:
-            item_locator = self.page.locator("ul.srp-results li[data-viewport]")
-            try:
-                item_locator.first.wait_for(state="visible", timeout=5_000)
-            except Exception:
-                self.logger.warning("No result items found on page")
-                return urls
+        item_locator = self._resolve_result_item_locator()
+        if item_locator is None:
+            return urls
 
         items = item_locator.all()
         self.logger.info("Found %d item cards on page", len(items))
 
         for idx, item in enumerate(items):
             try:
-                price_el = item.locator(".s-card__price").first
+                if self._is_placeholder_card(item):
+                    continue
+
+                item.scroll_into_view_if_needed(timeout=2_000)
+
+                price_el = item.locator(".s-card__price, .s-item__price").first
                 if not price_el.is_visible(timeout=1_000):
                     continue
                 price_text = price_el.inner_text(timeout=2_000)
@@ -268,9 +315,9 @@ class SearchResultsPage(BasePage):
                 if price > max_price:
                     continue
 
-                link_el = item.locator("a.s-card__link").first
-                if not link_el.count():
-                    link_el = item.locator("a[href*='/itm/']").first
+                link_el = item.locator(
+                    "a.s-card__link, a.s-item__link, a[href*='/itm/']"
+                ).first
                 href = link_el.get_attribute("href", timeout=2_000)
                 if href and "ebay.com" in href and "/itm/123456" not in href:
                     urls.append(href)
